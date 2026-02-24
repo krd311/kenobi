@@ -65,7 +65,7 @@ The API returns both the score and human-readable explanations so results are tr
 
 ## Development Phases
 
-### Phase 0 – Core Evaluation (MVP; Current
+### Phase 0 – Core Evaluation (MVP; Current)
 - Take input
 - Reverse geocoding
 - Sunset/sunrise + astronomical twilight
