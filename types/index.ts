@@ -1,0 +1,40 @@
+export interface Location {
+  name: string;
+  latitude: number;
+  longitude: number;
+}
+
+export interface SunInfo {
+  sunset: string;
+  astronomicalDusk: string;
+}
+
+export interface MoonInfo {
+  illumination: number;
+  moonrise: string | null;
+  moonset: string | null;
+  aboveHorizonDuringWindow: boolean;
+}
+
+export interface WeatherInfo {
+  averageCloudCover: number;
+}
+
+export interface ScoreInfo {
+  value: number;
+  reasons: string[];
+}
+
+export interface EvaluateResponse {
+  location: Location;
+  sun: SunInfo;
+  moon: MoonInfo;
+  weather: WeatherInfo;
+  score: ScoreInfo;
+}
+
+export interface EvaluateRequest {
+  city?: string;
+  latitude?: number;
+  longitude?: number;
+}
