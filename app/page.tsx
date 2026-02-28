@@ -1,8 +1,11 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { EvaluateResponse } from "@/types";
+import { SearchPanel } from "@/app/components/SearchPanel";
+import { InfoPanel } from "@/app/components/InfoPanel";
+import { useDraggablePanels } from "@/app/hooks/useDraggablePanels";
 
 const LocationPickerMap = dynamic(() => import("@/app/components/LocationPickerMap"), {
   ssr: false,
@@ -48,9 +51,6 @@ function parseCoordinates(value: string): { latitude: number; longitude: number 
 }
 
 export default function Home() {
-  type PanelRect = { x: number; y: number; width: number; height: number };
-  type PanelId = "search" | "info";
-
   const [locationInput, setLocationInput] = useState("");
   const [mapLatitude, setMapLatitude] = useState<number | null>(null);
   const [mapLongitude, setMapLongitude] = useState<number | null>(null);
@@ -66,10 +66,23 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const minDate = "1940-01-01";
   const maxDate = maxForecastDateValue();
-  const [searchRect, setSearchRect] = useState<PanelRect>({ x: 16, y: 16, width: 420, height: 250 });
-  const [infoRect, setInfoRect] = useState<PanelRect>({ x: 120, y: 520, width: 940, height: 320 });
-  const [isInfoPanelReady, setIsInfoPanelReady] = useState(false);
   const BOTTOM_GAP = 24;
+
+  const {
+    searchRect,
+    infoRect,
+    isInfoPanelReady,
+    startDrag,
+    onDragMove,
+    endDrag,
+    startResize,
+    onResizeMove,
+    endResize,
+  } = useDraggablePanels({
+    initialSearchRect: { x: 16, y: 16, width: 420, height: 250 },
+    initialInfoRect: { x: 120, y: 520, width: 940, height: 320 },
+    bottomGap: BOTTOM_GAP,
+  });
 
   async function reverseGeocodeLabel(
     latitude: number,
@@ -94,101 +107,6 @@ export default function Home() {
       return fallbackLabel;
     }
   }
-
-  const dragRef = useRef<{
-  panel: PanelId | null;
-  startX: number;
-  startY: number;
-  startRect: PanelRect | null;
-}>({ panel: null, startX: 0, startY: 0, startRect: null });
-
-const resizeRef = useRef<{
-  panel: PanelId | null;
-  startX: number;
-  startY: number;
-  startRect: PanelRect | null;
-}>({ panel: null, startX: 0, startY: 0, startRect: null });
-
-const getRect = (panel: PanelId) => (panel === "search" ? searchRect : infoRect);
-const setRect = (panel: PanelId, next: PanelRect) =>
-  panel === "search" ? setSearchRect(next) : setInfoRect(next);
-
-function clampRect(rect: PanelRect): PanelRect {
-  if (typeof window === "undefined") return rect;
-  const minW = 320;
-  const minH = 180;
-  const width = Math.max(minW, rect.width);
-  const height = Math.max(minH, rect.height);
-  const maxX = Math.max(0, window.innerWidth - width);
-  const maxY = Math.max(0, window.innerHeight - height);
-  return {
-    width,
-    height,
-    x: Math.min(Math.max(0, rect.x), maxX),
-    y: Math.min(Math.max(0, rect.y), maxY),
-  };
-}
-
-function startDrag(e: React.PointerEvent<HTMLDivElement>, panel: PanelId) {
-  const current = getRect(panel);
-  dragRef.current = { panel, startX: e.clientX, startY: e.clientY, startRect: current };
-  e.currentTarget.setPointerCapture(e.pointerId);
-  document.body.style.userSelect = "none";
-}
-
-function onDragMove(e: React.PointerEvent<HTMLDivElement>) {
-  const d = dragRef.current;
-  if (!d.panel || !d.startRect) return;
-  const dx = e.clientX - d.startX;
-  const dy = e.clientY - d.startY;
-  const next = clampRect({ ...d.startRect, x: d.startRect.x + dx, y: d.startRect.y + dy });
-  setRect(d.panel, next);
-}
-
-function endDrag() {
-  dragRef.current = { panel: null, startX: 0, startY: 0, startRect: null };
-  document.body.style.userSelect = "";
-}
-
-function startResize(e: React.PointerEvent<HTMLDivElement>, panel: PanelId) {
-  const current = getRect(panel);
-  resizeRef.current = { panel, startX: e.clientX, startY: e.clientY, startRect: current };
-  e.currentTarget.setPointerCapture(e.pointerId);
-  document.body.style.userSelect = "none";
-}
-
-function onResizeMove(e: React.PointerEvent<HTMLDivElement>) {
-  const r = resizeRef.current;
-  if (!r.panel || !r.startRect) return;
-  const dx = e.clientX - r.startX;
-  const dy = e.clientY - r.startY;
-  const next = clampRect({
-    ...r.startRect,
-    width: r.startRect.width + dx,
-    height: r.startRect.height + dy,
-  });
-  setRect(r.panel, next);
-}
-
-function endResize() {
-  resizeRef.current = { panel: null, startX: 0, startY: 0, startRect: null };
-  document.body.style.userSelect = "";
-}
-
-useLayoutEffect(() => {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  setInfoRect((current) =>
-    clampRect({
-      ...current,
-      x: (window.innerWidth - current.width) / 2,
-      y: window.innerHeight - current.height - BOTTOM_GAP,
-    })
-  );
-  setIsInfoPanelReady(true);
-}, []);
 
   useEffect(() => {
     if (typeof window === "undefined" || !navigator.geolocation) {
@@ -310,7 +228,7 @@ useLayoutEffect(() => {
     };
   }, [locationInput, isLocationInputFocused]);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
@@ -398,328 +316,46 @@ useLayoutEffect(() => {
         />
       </div>
 
-      <section
-        style={{
-          position: "absolute",
-          top: searchRect.y,
-          left: searchRect.x,
-          zIndex: 1000,
-          width: searchRect.width,
-          height: searchRect.height,
-          overflow: "auto",
-          background: "rgba(22, 28, 38, 0.95)",
-          border: "1px solid rgba(107, 114, 128, 0.65)",
-          borderRadius: 14,
-          padding: "14px",
-          boxShadow: "0 10px 36px rgba(0, 0, 0, 0.55)",
-          transition: "opacity 200ms ease, transform 200ms ease",
-        }}
-      >
-        <div
-          onPointerDown={(e) => startDrag(e, "search")}
-          onPointerMove={onDragMove}
-          onPointerUp={endDrag}
-          onPointerCancel={endDrag}
-          style={{ 
-            cursor: "move", 
-            fontSize: "0.8rem", 
-            color: "#9ca3af", 
-            marginBottom: "0.35rem",
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 28,
-            background: "transparent",
-            borderTopLeftRadius: 14,
-            borderTopRightRadius: 14,
-          }}
-        >
-        </div>
-        <div
-          onPointerDown={(e) => startResize(e, "search")}
-          onPointerMove={onResizeMove}
-          onPointerUp={endResize}
-          onPointerCancel={endResize}
-          style={{
-            position: "absolute",
-            right: 8,
-            bottom: 8,
-            width: 14,
-            height: 14,
-            cursor: "nwse-resize",
-            borderRight: "2px solid #9ca3af",
-            borderBottom: "2px solid #9ca3af",
-          }}
-        />
-          <h1 style={{ margin: 0, fontSize: "1.1rem" }}>Stargazing Planner</h1>
-          <p style={{ margin: "0.35rem 0 0.8rem", color: "#d1d5db", fontSize: "0.92rem" }}>
-            Search by city, address, or coordinates (lat, lon).
-          </p>
+      <SearchPanel
+        rect={searchRect}
+        loading={loading}
+        locationInput={locationInput}
+        setLocationInput={setLocationInput}
+        setSelectedSuggestion={setSelectedSuggestion}
+        setMapLatitude={setMapLatitude}
+        setMapLongitude={setMapLongitude}
+        showSuggestions={showSuggestions}
+        suggestions={suggestions}
+        loadingSuggestions={loadingSuggestions}
+        setShowSuggestions={setShowSuggestions}
+        setIsLocationInputFocused={setIsLocationInputFocused}
+        date={date}
+        setDate={setDate}
+        minDate={minDate}
+        maxDate={maxDate}
+        error={error}
+        onSubmit={handleSubmit}
+        onStartDrag={(e) => startDrag(e, "search")}
+        onDragMove={onDragMove}
+        onEndDrag={endDrag}
+        onStartResize={(e) => startResize(e, "search")}
+        onResizeMove={onResizeMove}
+        onEndResize={endResize}
+        parseCoordinates={parseCoordinates}
+      />
 
-          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-            <div style={{ position: "relative" }}>
-              <input
-                type="text"
-                value={locationInput}
-                onChange={(e) => {
-                  setLocationInput(e.target.value);
-                  setSelectedSuggestion(null);
-
-                  const parsedCoordinates = parseCoordinates(e.target.value);
-                  if (parsedCoordinates) {
-                    setMapLatitude(parsedCoordinates.latitude);
-                    setMapLongitude(parsedCoordinates.longitude);
-                  }
-                }}
-                placeholder="Enter city, address, or lat, lon"
-                disabled={loading}
-                onFocus={() => {
-                  setIsLocationInputFocused(true);
-                  if (suggestions.length > 0) {
-                    setShowSuggestions(true);
-                  }
-                }}
-                onBlur={() => {
-                  setIsLocationInputFocused(false);
-                  setTimeout(() => setShowSuggestions(false), 100);
-                }}
-                style={{
-                  width: "100%",
-                  boxSizing: "border-box",
-                  padding: "0.65rem 0.75rem",
-                  borderRadius: 9,
-                  border: "1px solid #2a2f38",
-                  background: "#111827",
-                  color: "#fff",
-                }}
-              />
-
-              {showSuggestions && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "calc(100% + 6px)",
-                    left: 0,
-                    right: 0,
-                    background: "#111827",
-                    border: "1px solid #2a2f38",
-                    borderRadius: 9,
-                    maxHeight: 220,
-                    overflowY: "auto",
-                    zIndex: 1001,
-                  }}
-                >
-                  {suggestions.map((suggestion) => (
-                    <button
-                      key={`${suggestion.name}-${suggestion.latitude}-${suggestion.longitude}`}
-                      type="button"
-                      onClick={() => {
-                        setLocationInput(suggestion.name);
-                        setSelectedSuggestion(suggestion);
-                        setMapLatitude(suggestion.latitude);
-                        setMapLongitude(suggestion.longitude);
-                        setShowSuggestions(false);
-                      }}
-                      onMouseDown={(event) => {
-                        event.preventDefault();
-                      }}
-                      style={{
-                        width: "100%",
-                        textAlign: "left",
-                        padding: "0.6rem 0.75rem",
-                        border: "none",
-                        background: "transparent",
-                        color: "#fff",
-                        cursor: "pointer",
-                        transition: "background-color 150ms ease",
-                      }}
-                    >
-                      {suggestion.name}
-                    </button>
-                  ))}
-                  {loadingSuggestions && (
-                    <div style={{ padding: "0.6rem 0.75rem", color: "#9ca3af" }}>Searching…</div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", fontSize: "0.92rem" }}>
-              <span>Date</span>
-              <input
-                type="date"
-                aria-label="Date"
-                value={date}
-                min={minDate}
-                max={maxDate}
-                onChange={(e) => setDate(e.target.value)}
-                onClick={(e) => {
-                  e.currentTarget.showPicker?.();
-                }}
-                style={{
-                  width: "100%",
-                  boxSizing: "border-box",
-                  padding: "0.55rem 0.7rem",
-                  borderRadius: 9,
-                  border: "1px solid #2a2f38",
-                  background: "#111827",
-                  color: "#fff",
-                  colorScheme: "dark",
-                }}
-              />
-              <small style={{ color: "#9ca3af" }}>
-                Future dates are available up to 16 days ahead based on forecast data.
-              </small>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                padding: "0.62rem 0.9rem",
-                borderRadius: 9,
-                border: "none",
-                cursor: loading ? "default" : "pointer",
-                background: "#f3f4f6",
-                color: "#111827",
-                fontWeight: 600,
-                transition: "opacity 150ms ease, transform 150ms ease",
-                WebkitTapHighlightColor: "transparent",
-              }}
-            >
-              {loading ? "Evaluating…" : "Evaluate Location"}
-            </button>
-
-            {error && (
-              <p style={{ margin: 0, color: "#fca5a5" }} role="alert" aria-live="polite">
-                {error}
-              </p>
-            )}
-          </form>
-      </section>
-
-      <section
-        style={{
-          position: "absolute",
-          left: infoRect.x,
-          top: infoRect.y,
-          width: infoRect.width,
-          height: infoRect.height,
-          boxSizing: "border-box",
-          overflowY: "auto",
-          overflowX: "hidden",
-          background: "rgba(22, 28, 38, 0.95)",
-          border: "1px solid rgba(107, 114, 128, 0.65)",
-          borderRadius: 14,
-          padding: "14px 16px",
-          zIndex: 1000,
-          boxShadow: "0 10px 36px rgba(0, 0, 0, 0.55)",
-          visibility: isInfoPanelReady ? "visible" : "hidden",
-        }}
-      >
-        <div
-          onPointerDown={(e) => startDrag(e, "info")}
-          onPointerMove={onDragMove}
-          onPointerUp={endDrag}
-          onPointerCancel={endDrag}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 28,
-            cursor: "move",
-            background: "transparent",
-            borderTopLeftRadius: 14,
-            borderTopRightRadius: 14,
-          }}
-        />
-
-        <div
-          onPointerDown={(e) => startResize(e, "info")}
-          onPointerMove={onResizeMove}
-          onPointerUp={endResize}
-          onPointerCancel={endResize}
-          style={{
-            position: "absolute",
-            right: 8,
-            bottom: 8,
-            width: 14,
-            height: 14,
-            cursor: "nwse-resize",
-            borderRight: "2px solid #9ca3af",
-            borderBottom: "2px solid #9ca3af",
-          }}
-        />
-
-        {!result && (
-          <p style={{ margin: 0, color: "#d1d5db" }}>
-            Choose a location and date to see stargazing conditions here.
-          </p>
-        )}
-
-        {result && (
-          <>
-            <h2 style={{ margin: 0, fontSize: "1.02rem" }}>{result.location.name}</h2>
-            <p style={{ margin: "0.25rem 0 0.75rem", color: "#9ca3af", fontSize: "0.9rem" }}>
-              {result.location.latitude.toFixed(4)}, {result.location.longitude.toFixed(4)}
-            </p>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
-                gap: "0.75rem",
-              }}
-            >
-              <div>
-                <strong>Date</strong>
-                <p style={{ margin: "0.25rem 0 0" }}>
-                  {evaluatedDate
-                    ? new Date(`${evaluatedDate}T12:00:00`).toLocaleDateString()
-                    : "—"}
-                </p>
-              </div>
-              <div>
-                <strong>Score</strong>
-                <p style={{ margin: "0.25rem 0 0" }}>{result.score.value} / 100</p>
-              </div>
-              <div>
-                <strong>Cloud Cover</strong>
-                <p style={{ margin: "0.25rem 0 0" }}>{result.weather.averageCloudCover.toFixed(1)}%</p>
-              </div>
-              <div>
-                <strong>Moon Illumination</strong>
-                <p style={{ margin: "0.25rem 0 0" }}>{(result.moon.illumination * 100).toFixed(1)}%</p>
-              </div>
-              <div>
-                <strong>Moon During Window</strong>
-                <p style={{ margin: "0.25rem 0 0" }}>{result.moon.aboveHorizonDuringWindow ? "Yes" : "No"}</p>
-              </div>
-              <div>
-                <strong>Sunset</strong>
-                <p style={{ margin: "0.25rem 0 0" }}>{new Date(result.sun.sunset).toLocaleTimeString()}</p>
-              </div>
-              <div>
-                <strong>Astronomical Dusk</strong>
-                <p style={{ margin: "0.25rem 0 0" }}>
-                  {new Date(result.sun.astronomicalDusk).toLocaleTimeString()}
-                </p>
-              </div>
-            </div>
-
-            <div style={{ marginTop: "0.85rem" }}>
-              <strong>Reasoning</strong>
-              <ul style={{ margin: "0.35rem 0 0", paddingLeft: "1.15rem" }}>
-                {result.score.reasons.map((reason, index) => (
-                  <li key={index}>{reason}</li>
-                ))}
-              </ul>
-            </div>
-          </>
-        )}
-      </section>
+      <InfoPanel
+        rect={infoRect}
+        isReady={isInfoPanelReady}
+        result={result}
+        evaluatedDate={evaluatedDate}
+        onStartDrag={(e) => startDrag(e, "info")}
+        onDragMove={onDragMove}
+        onEndDrag={endDrag}
+        onStartResize={(e) => startResize(e, "info")}
+        onResizeMove={onResizeMove}
+        onEndResize={endResize}
+      />
     </main>
   );
 }
