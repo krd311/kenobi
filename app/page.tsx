@@ -545,17 +545,15 @@ useLayoutEffect(() => {
               )}
             </div>
 
-            <label style={{ display: "flex", flexDirection: "column", gap: "0.25rem", fontSize: "0.92rem" }}>
-              Date
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", fontSize: "0.92rem" }}>
+              <span>Date</span>
               <input
                 type="date"
+                aria-label="Date"
                 value={date}
                 min={minDate}
                 max={maxDate}
                 onChange={(e) => setDate(e.target.value)}
-                onFocus={(e) => {
-                  e.currentTarget.showPicker?.();
-                }}
                 onClick={(e) => {
                   e.currentTarget.showPicker?.();
                 }}
@@ -567,12 +565,13 @@ useLayoutEffect(() => {
                   border: "1px solid #2a2f38",
                   background: "#111827",
                   color: "#fff",
+                  colorScheme: "dark",
                 }}
               />
               <small style={{ color: "#9ca3af" }}>
                 Future dates are available up to 16 days ahead based on forecast data.
               </small>
-            </label>
+            </div>
 
             <button
               type="submit"
