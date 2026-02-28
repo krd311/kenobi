@@ -1,41 +1,67 @@
 import { WeatherInfo } from "@/types";
 
-interface NWSPointResponse {
-  properties: {
-    forecastHourly: string;
-  };
+interface OpenMeteoHourly {
+  time: string[];
+  cloud_cover: Array<number | null>;
 }
 
-interface NWSHourlyPeriod {
-  startTime: string;
-  cloudCover?: number;
-  shortForecast?: string;
+interface OpenMeteoResponse {
+  hourly?: OpenMeteoHourly;
 }
 
-interface NWSHourlyResponse {
-  properties: {
-    periods: NWSHourlyPeriod[];
-  };
+const MAX_FORECAST_DAYS_AHEAD = 16;
+const FORECAST_PAST_DAYS = 92;
+
+function formatDateUTC(date: Date): string {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function addUtcDays(date: Date, days: number): Date {
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days, 12, 0, 0)
+  );
+}
+
+function parseOpenMeteoUtc(value: string): number {
+  return new Date(`${value}:00Z`).getTime();
+}
+
+async function fetchOpenMeteoCloudCover(
+  latitude: number,
+  longitude: number,
+  startDate: string,
+  endDate: string,
+  useArchive: boolean
+): Promise<OpenMeteoHourly> {
+  const baseUrl = useArchive
+    ? "https://archive-api.open-meteo.com/v1/archive"
+    : "https://api.open-meteo.com/v1/forecast";
+
+  const url =
+    `${baseUrl}?latitude=${latitude.toFixed(4)}` +
+    `&longitude=${longitude.toFixed(4)}` +
+    `&start_date=${startDate}&end_date=${endDate}` +
+    "&hourly=cloud_cover&timezone=UTC";
+
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Open-Meteo weather API error: ${res.status} ${res.statusText}`);
+  }
+
+  const data = (await res.json()) as OpenMeteoResponse;
+  if (!data.hourly || !data.hourly.time || !data.hourly.cloud_cover) {
+    throw new Error("Open-Meteo weather data is unavailable for the selected date.");
+  }
+
+  return data.hourly;
 }
 
 /**
- * Estimate cloud cover percentage from a short forecast string.
- * NWS hourly forecast sometimes lacks a numeric cloudCover field,
- * so we fall back to keyword matching.
- */
-function cloudCoverFromForecast(forecast: string): number {
-  const f = forecast.toLowerCase();
-  if (f.includes("clear") || f.includes("sunny")) return 0;
-  if (f.includes("mostly clear") || f.includes("mostly sunny")) return 15;
-  if (f.includes("partly cloudy") || f.includes("partly sunny")) return 40;
-  if (f.includes("mostly cloudy")) return 75;
-  if (f.includes("cloudy") || f.includes("overcast")) return 90;
-  if (f.includes("rain") || f.includes("snow") || f.includes("storm")) return 95;
-  return 50; // unknown
-}
-
-/**
- * Fetch hourly cloud cover from the NOAA NWS API for a given lat/lon.
+ * Fetch hourly cloud cover from Open-Meteo.
+ * Supports historical dates and forecast-range future dates.
  * Averages cloud cover for the observing window (8 PM – 2 AM).
  */
 export async function getWeatherInfo(
@@ -43,33 +69,36 @@ export async function getWeatherInfo(
   longitude: number,
   date: Date
 ): Promise<WeatherInfo> {
-  // Step 1: Get the forecast office grid point
-  const pointUrl = `https://api.weather.gov/points/${latitude.toFixed(4)},${longitude.toFixed(4)}`;
-  const pointRes = await fetch(pointUrl, {
-    headers: { "User-Agent": "StargazingConditionEvaluator/1.0 (contact@example.com)" },
-  });
+  const selectedDate = new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12, 0, 0)
+  );
+  const today = new Date();
+  const todayDate = new Date(
+    Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 12, 0, 0)
+  );
 
-  if (!pointRes.ok) {
-    throw new Error(`NWS points API error: ${pointRes.status} ${pointRes.statusText}`);
+  const diffDays = Math.floor(
+    (selectedDate.getTime() - todayDate.getTime()) / (24 * 60 * 60 * 1000)
+  );
+
+  if (diffDays > MAX_FORECAST_DAYS_AHEAD) {
+    throw new Error(
+      `Weather forecast is currently available up to ${MAX_FORECAST_DAYS_AHEAD} days in the future.`
+    );
   }
 
-  const pointData = (await pointRes.json()) as NWSPointResponse;
-  const forecastHourlyUrl = pointData.properties.forecastHourly;
+  const useArchive = diffDays < -FORECAST_PAST_DAYS;
+  const startDate = formatDateUTC(selectedDate);
+  const endDate = formatDateUTC(addUtcDays(selectedDate, 1));
 
-  // Step 2: Fetch hourly forecast
-  const hourlyRes = await fetch(forecastHourlyUrl, {
-    headers: { "User-Agent": "StargazingConditionEvaluator/1.0 (contact@example.com)" },
-  });
+  const hourly = await fetchOpenMeteoCloudCover(
+    latitude,
+    longitude,
+    startDate,
+    endDate,
+    useArchive
+  );
 
-  if (!hourlyRes.ok) {
-    throw new Error(`NWS hourly forecast error: ${hourlyRes.status} ${hourlyRes.statusText}`);
-  }
-
-  const hourlyData = (await hourlyRes.json()) as NWSHourlyResponse;
-  const periods = hourlyData.properties.periods;
-
-  // Step 3: Filter periods that fall within the observing window (8 PM – 2 AM)
-  // Use the provided date to build the window date range
   const offsetMinutes = Math.round((longitude / 15) * 60);
   const windowStart = new Date(
     Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 20, 0, 0) -
@@ -80,17 +109,24 @@ export async function getWeatherInfo(
       offsetMinutes * 60_000
   );
 
-  const windowPeriods = periods.filter((p) => {
-    const t = new Date(p.startTime).getTime();
-    return t >= windowStart.getTime() && t <= windowEnd.getTime();
-  });
+  const cloudValues = hourly.time
+    .map((time, index) => {
+      const timestamp = parseOpenMeteoUtc(time);
+      const cloudCover = hourly.cloud_cover[index];
+      return { timestamp, cloudCover };
+    })
+    .filter(
+      (entry) =>
+        entry.timestamp >= windowStart.getTime() &&
+        entry.timestamp <= windowEnd.getTime() &&
+        typeof entry.cloudCover === "number" &&
+        Number.isFinite(entry.cloudCover)
+    )
+    .map((entry) => entry.cloudCover as number);
 
-  const relevantPeriods = windowPeriods.length > 0 ? windowPeriods : periods.slice(0, 7);
-
-  const cloudValues = relevantPeriods.map((p) => {
-    if (typeof p.cloudCover === "number") return p.cloudCover;
-    return cloudCoverFromForecast(p.shortForecast ?? "");
-  });
+  if (cloudValues.length === 0) {
+    throw new Error("No weather data available for the selected date and location.");
+  }
 
   const averageCloudCover =
     cloudValues.length > 0
