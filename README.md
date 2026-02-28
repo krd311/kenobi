@@ -63,6 +63,20 @@ The API returns both the score and human-readable explanations so results are tr
 
 ---
 
+## Local Environment Variables
+
+- Runtime uses `.env` (and `.env.local`), not `.env.example`.
+- `.env.example` is a template only.
+
+Example setup:
+
+1. Copy `.env.example` to `.env`
+2. Set your real OpenCage key in `.env`:
+	- `OPENCAGE_API_KEY=...`
+3. Restart the dev server after changing env values.
+
+---
+
 ## Development Phases
 
 ### Phase 0 – Core Evaluation (MVP; Current)

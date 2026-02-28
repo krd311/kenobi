@@ -37,4 +37,5 @@ export interface EvaluateRequest {
   city?: string;
   latitude?: number;
   longitude?: number;
+  date?: string;
 }
