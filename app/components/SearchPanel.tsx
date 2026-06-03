@@ -1,8 +1,9 @@
 "use client";
 
-import { type FormEvent, type PointerEvent } from "react";
+import { type FormEvent, type PointerEvent, useEffect, useState } from "react";
 import { type PanelRect } from "@/app/hooks/useDraggablePanels";
 import { dragHandleStyle, getBasePanelStyle, resizeHandleStyle } from "@/app/components/panelStyles";
+import { EvaluateResponse } from "@/types";
 
 interface PlaceSuggestion {
   name: string;
@@ -28,6 +29,8 @@ export function SearchPanel({
   minDate,
   maxDate,
   error,
+  result,
+  evaluatedDate,
   onSubmit,
   onStartDrag,
   onDragMove,
@@ -54,6 +57,8 @@ export function SearchPanel({
   minDate: string;
   maxDate: string;
   error: string | null;
+  result: EvaluateResponse | null;
+  evaluatedDate: string | null;
   onSubmit: (e: FormEvent) => void;
   onStartDrag: (e: PointerEvent<HTMLDivElement>) => void;
   onDragMove: (e: PointerEvent<HTMLDivElement>) => void;
@@ -63,11 +68,26 @@ export function SearchPanel({
   onEndResize: () => void;
   parseCoordinates: (value: string) => { latitude: number; longitude: number } | null;
 }) {
+  const [isEvaluationExpanded, setIsEvaluationExpanded] = useState(false);
+
+  useEffect(() => {
+    if (result) {
+      setIsEvaluationExpanded(true);
+    }
+  }, [result]);
+
+  useEffect(() => {
+    if (loading) {
+      setIsEvaluationExpanded(true);
+    }
+  }, [loading]);
+
   return (
     <section
       style={{
         ...getBasePanelStyle(rect),
-        overflow: "auto",
+        height: "auto",
+        overflow: "visible",
         padding: "14px",
         transition: "opacity 200ms ease, transform 200ms ease",
       }}
@@ -236,6 +256,117 @@ export function SearchPanel({
           </p>
         )}
       </form>
+
+      <div style={{ marginTop: "0.9rem", paddingTop: "0.75rem", borderTop: "1px solid rgba(107, 114, 128, 0.35)" }}>
+        <button
+          type="button"
+          onClick={() => setIsEvaluationExpanded((current) => !current)}
+          style={{
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "0.5rem 0.6rem",
+            borderRadius: 8,
+            border: "1px solid #2a2f38",
+            background: "#111827",
+            color: "#f3f4f6",
+            cursor: "pointer",
+            fontWeight: 600,
+            textAlign: "left",
+          }}
+          aria-expanded={isEvaluationExpanded}
+          aria-controls="evaluation-results"
+        >
+          <span>Evaluation</span>
+          <span style={{ color: "#9ca3af", fontSize: "0.85rem" }}>
+            {isEvaluationExpanded ? "Hide" : "Show"}
+          </span>
+        </button>
+
+        <div
+          id="evaluation-results"
+          style={{
+            marginTop: "0.75rem",
+            overflow: "hidden",
+            maxHeight: isEvaluationExpanded ? 1200 : 0,
+            opacity: isEvaluationExpanded ? 1 : 0,
+            transform: isEvaluationExpanded ? "translateY(0)" : "translateY(-4px)",
+            transition: "max-height 280ms ease, opacity 220ms ease, transform 220ms ease",
+            pointerEvents: isEvaluationExpanded ? "auto" : "none",
+          }}
+          aria-hidden={!isEvaluationExpanded}
+        >
+          {loading && !result && (
+            <p style={{ margin: "0 0 0.55rem", color: "#d1d5db" }}>Evaluating this area…</p>
+          )}
+
+          {isEvaluationExpanded && !result && (
+            <p style={{ margin: 0, color: "#d1d5db" }}>
+              Choose a location and date, then evaluate to see stargazing details.
+            </p>
+          )}
+
+          {isEvaluationExpanded && result && (
+            <>
+              <h2 style={{ margin: 0, fontSize: "1.02rem" }}>{result.location.name}</h2>
+              <p style={{ margin: "0.25rem 0 0.75rem", color: "#9ca3af", fontSize: "0.9rem" }}>
+                {result.location.latitude.toFixed(4)}, {result.location.longitude.toFixed(4)}
+              </p>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+                  gap: "0.75rem",
+                }}
+              >
+                <div>
+                  <strong>Date</strong>
+                  <p style={{ margin: "0.25rem 0 0" }}>
+                    {evaluatedDate ? new Date(`${evaluatedDate}T12:00:00`).toLocaleDateString() : "-"}
+                  </p>
+                </div>
+                <div>
+                  <strong>Score</strong>
+                  <p style={{ margin: "0.25rem 0 0" }}>{result.score.value} / 100</p>
+                </div>
+                <div>
+                  <strong>Cloud Cover</strong>
+                  <p style={{ margin: "0.25rem 0 0" }}>{result.weather.averageCloudCover.toFixed(1)}%</p>
+                </div>
+                <div>
+                  <strong>Moon Illumination</strong>
+                  <p style={{ margin: "0.25rem 0 0" }}>{(result.moon.illumination * 100).toFixed(1)}%</p>
+                </div>
+                <div>
+                  <strong>Moon During Window</strong>
+                  <p style={{ margin: "0.25rem 0 0" }}>{result.moon.aboveHorizonDuringWindow ? "Yes" : "No"}</p>
+                </div>
+                <div>
+                  <strong>Sunset</strong>
+                  <p style={{ margin: "0.25rem 0 0" }}>{new Date(result.sun.sunset).toLocaleTimeString()}</p>
+                </div>
+                <div>
+                  <strong>Astronomical Dusk</strong>
+                  <p style={{ margin: "0.25rem 0 0" }}>
+                    {new Date(result.sun.astronomicalDusk).toLocaleTimeString()}
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ marginTop: "0.85rem" }}>
+                <strong>Reasoning</strong>
+                <ul style={{ margin: "0.35rem 0 0", paddingLeft: "1.15rem" }}>
+                  {result.score.reasons.map((reason, index) => (
+                    <li key={index}>{reason}</li>
+                  ))}
+                </ul>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
     </section>
   );
 }

@@ -4,7 +4,6 @@ import dynamic from "next/dynamic";
 import { type FormEvent, useEffect, useState } from "react";
 import { EvaluateResponse } from "@/types";
 import { SearchPanel } from "@/app/components/SearchPanel";
-import { InfoPanel } from "@/app/components/InfoPanel";
 import { useDraggablePanels } from "@/app/hooks/useDraggablePanels";
 
 const LocationPickerMap = dynamic(() => import("@/app/components/LocationPickerMap"), {
@@ -66,12 +65,9 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const minDate = "1940-01-01";
   const maxDate = maxForecastDateValue();
-  const BOTTOM_GAP = 24;
 
   const {
     searchRect,
-    infoRect,
-    isInfoPanelReady,
     startDrag,
     onDragMove,
     endDrag,
@@ -80,8 +76,6 @@ export default function Home() {
     endResize,
   } = useDraggablePanels({
     initialSearchRect: { x: 16, y: 16, width: 420, height: 250 },
-    initialInfoRect: { x: 120, y: 520, width: 940, height: 320 },
-    bottomGap: BOTTOM_GAP,
   });
 
   async function reverseGeocodeLabel(
@@ -334,6 +328,8 @@ export default function Home() {
         minDate={minDate}
         maxDate={maxDate}
         error={error}
+        result={result}
+        evaluatedDate={evaluatedDate}
         onSubmit={handleSubmit}
         onStartDrag={(e) => startDrag(e, "search")}
         onDragMove={onDragMove}
@@ -342,19 +338,6 @@ export default function Home() {
         onResizeMove={onResizeMove}
         onEndResize={endResize}
         parseCoordinates={parseCoordinates}
-      />
-
-      <InfoPanel
-        rect={infoRect}
-        isReady={isInfoPanelReady}
-        result={result}
-        evaluatedDate={evaluatedDate}
-        onStartDrag={(e) => startDrag(e, "info")}
-        onDragMove={onDragMove}
-        onEndDrag={endDrag}
-        onStartResize={(e) => startResize(e, "info")}
-        onResizeMove={onResizeMove}
-        onEndResize={endResize}
       />
     </main>
   );

@@ -1,8 +1,8 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState, type PointerEvent } from "react";
+import { useRef, useState, type PointerEvent } from "react";
 
-export type PanelId = "search" | "info";
+export type PanelId = "search";
 
 export interface PanelRect {
   x: number;
@@ -20,16 +20,10 @@ interface DragState {
 
 export function useDraggablePanels({
   initialSearchRect,
-  initialInfoRect,
-  bottomGap,
 }: {
   initialSearchRect: PanelRect;
-  initialInfoRect: PanelRect;
-  bottomGap: number;
 }) {
   const [searchRect, setSearchRect] = useState<PanelRect>(initialSearchRect);
-  const [infoRect, setInfoRect] = useState<PanelRect>(initialInfoRect);
-  const [isInfoPanelReady, setIsInfoPanelReady] = useState(false);
 
   const dragRef = useRef<DragState>({
     panel: null,
@@ -45,9 +39,8 @@ export function useDraggablePanels({
     startRect: null,
   });
 
-  const getRect = (panel: PanelId) => (panel === "search" ? searchRect : infoRect);
-  const setRect = (panel: PanelId, next: PanelRect) =>
-    panel === "search" ? setSearchRect(next) : setInfoRect(next);
+  const getRect = () => searchRect;
+  const setRect = (next: PanelRect) => setSearchRect(next);
 
   const clampRect = (rect: PanelRect): PanelRect => {
     if (typeof window === "undefined") return rect;
@@ -68,7 +61,7 @@ export function useDraggablePanels({
   };
 
   const startDrag = (e: PointerEvent<HTMLDivElement>, panel: PanelId) => {
-    const current = getRect(panel);
+    const current = getRect();
     dragRef.current = { panel, startX: e.clientX, startY: e.clientY, startRect: current };
     e.currentTarget.setPointerCapture(e.pointerId);
     document.body.style.userSelect = "none";
@@ -86,7 +79,7 @@ export function useDraggablePanels({
       y: drag.startRect.y + dy,
     });
 
-    setRect(drag.panel, next);
+    setRect(next);
   };
 
   const endDrag = () => {
@@ -95,7 +88,7 @@ export function useDraggablePanels({
   };
 
   const startResize = (e: PointerEvent<HTMLDivElement>, panel: PanelId) => {
-    const current = getRect(panel);
+    const current = getRect();
     resizeRef.current = { panel, startX: e.clientX, startY: e.clientY, startRect: current };
     e.currentTarget.setPointerCapture(e.pointerId);
     document.body.style.userSelect = "none";
@@ -114,7 +107,7 @@ export function useDraggablePanels({
       height: resize.startRect.height + dy,
     });
 
-    setRect(resize.panel, next);
+    setRect(next);
   };
 
   const endResize = () => {
@@ -122,25 +115,8 @@ export function useDraggablePanels({
     document.body.style.userSelect = "";
   };
 
-  useLayoutEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    setInfoRect((current) =>
-      clampRect({
-        ...current,
-        x: (window.innerWidth - current.width) / 2,
-        y: window.innerHeight - current.height - bottomGap,
-      })
-    );
-    setIsInfoPanelReady(true);
-  }, [bottomGap]);
-
   return {
     searchRect,
-    infoRect,
-    isInfoPanelReady,
     startDrag,
     onDragMove,
     endDrag,
