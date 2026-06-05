@@ -24,6 +24,7 @@ export function SearchPanel({
   loadingSuggestions,
   setShowSuggestions,
   setIsLocationInputFocused,
+  onUseCurrentLocation,
   date,
   setDate,
   minDate,
@@ -52,6 +53,7 @@ export function SearchPanel({
   loadingSuggestions: boolean;
   setShowSuggestions: (value: boolean) => void;
   setIsLocationInputFocused: (value: boolean) => void;
+  onUseCurrentLocation: () => void;
   date: string;
   setDate: (value: string) => void;
   minDate: string;
@@ -117,7 +119,7 @@ export function SearchPanel({
       </p>
 
       <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-        <div style={{ position: "relative" }}>
+        <div style={{ position: "relative", display: "grid", gridTemplateColumns: "1fr auto", gap: "0.5rem", alignItems: "center" }}>
           <input
             type="text"
             value={locationInput}
@@ -146,13 +148,44 @@ export function SearchPanel({
             style={{
               width: "100%",
               boxSizing: "border-box",
-              padding: "0.65rem 0.75rem",
+              height: 44,
+              padding: "0 0.75rem",
               borderRadius: 9,
               border: "1px solid #2a2f38",
               background: "#111827",
               color: "#fff",
             }}
           />
+
+          <button
+            type="button"
+            onClick={() => {
+              setShowSuggestions(false);
+              onUseCurrentLocation();
+            }}
+            disabled={loading}
+            aria-label="Use my current location"
+            title="Use my current location"
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 9,
+              border: "1px solid #2a2f38",
+              background: "#111827",
+              color: "#cbd5e1",
+              fontSize: "1rem",
+              fontWeight: 700,
+              letterSpacing: "0.02em",
+              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.25)",
+              cursor: loading ? "default" : "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 0,
+            }}
+          >
+            📍
+          </button>
 
           {showSuggestions && (
             <div
@@ -198,7 +231,7 @@ export function SearchPanel({
                 </button>
               ))}
               {loadingSuggestions && (
-                <div style={{ padding: "0.6rem 0.75rem", color: "#9ca3af" }}>Searching…</div>
+                <div style={{ padding: "0.6rem 0.75rem", color: "#9ca3af" }}>Searching...</div>
               )}
             </div>
           )}

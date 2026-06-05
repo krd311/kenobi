@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
-import "leaflet/dist/leaflet.css";
 
 const DEFAULT_CENTER: [number, number] = [39.8283, -98.5795];
 const SELECTED_ZOOM = 13;

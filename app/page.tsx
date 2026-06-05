@@ -102,63 +102,73 @@ export default function Home() {
     }
   }
 
+  async function applyPosition(position: GeolocationPosition) {
+    const latitude = position.coords.latitude;
+    const longitude = position.coords.longitude;
+    setMapLatitude(latitude);
+    setMapLongitude(longitude);
+
+    const fallbackLabel = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+    const label = await reverseGeocodeLabel(latitude, longitude, fallbackLabel);
+
+    setLocationInput((current) => (current.trim() ? current : label));
+    setSelectedSuggestion({ name: label, latitude, longitude });
+    setShowSuggestions(false);
+
+    setError(null);
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/evaluate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ latitude, longitude, date }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Unknown error");
+        return;
+      }
+
+      const nextResult = data as EvaluateResponse;
+      setResult(nextResult);
+      setEvaluatedDate(date);
+      setMapLatitude(nextResult.location.latitude);
+      setMapLongitude(nextResult.location.longitude);
+      setLocationInput(nextResult.location.name);
+      setSelectedSuggestion({
+        name: nextResult.location.name,
+        latitude: nextResult.location.latitude,
+        longitude: nextResult.location.longitude,
+      });
+    } catch {
+      setError("Failed to auto-evaluate your location. You can still evaluate manually.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function requestCurrentLocation() {
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      setError("Geolocation is not supported by your browser.");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        void applyPosition(position);
+      },
+      () => {
+        setError("Unable to access your location. Please allow location permission and try again.");
+      }
+    );
+  }
+
   useEffect(() => {
     if (typeof window === "undefined" || !navigator.geolocation) {
       return;
     }
-
-    const applyPosition = async (position: GeolocationPosition) => {
-      const latitude = position.coords.latitude;
-      const longitude = position.coords.longitude;
-      setMapLatitude(latitude);
-      setMapLongitude(longitude);
-
-      const fallbackLabel = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-      const label = await reverseGeocodeLabel(latitude, longitude, fallbackLabel);
-
-      setLocationInput((current) => (current.trim() ? current : label));
-      setSelectedSuggestion({ name: label, latitude, longitude });
-      setShowSuggestions(false);
-
-      setError(null);
-      setLoading(true);
-
-      try {
-        const res = await fetch("/api/evaluate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ latitude, longitude, date }),
-        });
-
-        const data = await res.json();
-        if (!res.ok) {
-          setError(data.error ?? "Unknown error");
-          return;
-        }
-
-        const nextResult = data as EvaluateResponse;
-        setResult(nextResult);
-        setEvaluatedDate(date);
-        setMapLatitude(nextResult.location.latitude);
-        setMapLongitude(nextResult.location.longitude);
-        setLocationInput(nextResult.location.name);
-        setSelectedSuggestion({
-          name: nextResult.location.name,
-          latitude: nextResult.location.latitude,
-          longitude: nextResult.location.longitude,
-        });
-      } catch {
-        setError("Failed to auto-evaluate your location. You can still evaluate manually.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    const getLocation = () => {
-      navigator.geolocation.getCurrentPosition((position) => {
-        void applyPosition(position);
-      }, () => undefined);
-    };
 
     if (!navigator.permissions?.query) {
       return;
@@ -168,7 +178,7 @@ export default function Home() {
       .query({ name: "geolocation" })
       .then((status) => {
         if (status.state === "granted") {
-          getLocation();
+          requestCurrentLocation();
         }
       })
       .catch(() => undefined);
@@ -323,6 +333,7 @@ export default function Home() {
         loadingSuggestions={loadingSuggestions}
         setShowSuggestions={setShowSuggestions}
         setIsLocationInputFocused={setIsLocationInputFocused}
+        onUseCurrentLocation={requestCurrentLocation}
         date={date}
         setDate={setDate}
         minDate={minDate}
