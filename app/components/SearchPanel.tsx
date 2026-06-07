@@ -334,13 +334,13 @@ export function SearchPanel({
             <p style={{ margin: "0 0 0.55rem", color: "#d1d5db" }}>Evaluating this area…</p>
           )}
 
-          {isEvaluationExpanded && !result && (
+          {!result && (
             <p style={{ margin: 0, color: "#d1d5db" }}>
               Choose a location and date, then evaluate to see stargazing details.
             </p>
           )}
 
-          {isEvaluationExpanded && result && (
+          {result && (
             <>
               <h2 style={{ margin: 0, fontSize: "1.02rem" }}>{result.location.name}</h2>
               <p style={{ margin: "0.25rem 0 0.75rem", color: "#9ca3af", fontSize: "0.9rem" }}>
