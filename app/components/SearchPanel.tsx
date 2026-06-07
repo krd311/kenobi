@@ -3,13 +3,7 @@
 import { type FormEvent, type PointerEvent, useEffect, useState } from "react";
 import { type PanelRect } from "@/app/hooks/useDraggablePanels";
 import { dragHandleStyle, getBasePanelStyle, resizeHandleStyle } from "@/app/components/panelStyles";
-import { EvaluateResponse } from "@/types";
-
-interface PlaceSuggestion {
-  name: string;
-  latitude: number;
-  longitude: number;
-}
+import { EvaluateResponse, Location } from "@/types";
 
 export function SearchPanel({
   rect,
@@ -45,11 +39,11 @@ export function SearchPanel({
   loading: boolean;
   locationInput: string;
   setLocationInput: (value: string) => void;
-  setSelectedSuggestion: (suggestion: PlaceSuggestion | null) => void;
+  setSelectedSuggestion: (suggestion: Location | null) => void;
   setMapLatitude: (value: number | null) => void;
   setMapLongitude: (value: number | null) => void;
   showSuggestions: boolean;
-  suggestions: PlaceSuggestion[];
+  suggestions: Location[];
   loadingSuggestions: boolean;
   setShowSuggestions: (value: boolean) => void;
   setIsLocationInputFocused: (value: boolean) => void;
@@ -119,7 +113,15 @@ export function SearchPanel({
       </p>
 
       <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-        <div style={{ position: "relative", display: "grid", gridTemplateColumns: "1fr auto", gap: "0.5rem", alignItems: "center" }}>
+        <div
+          style={{
+            position: "relative",
+            display: "grid",
+            gridTemplateColumns: "1fr auto",
+            gap: "0.5rem",
+            alignItems: "center",
+          }}
+        >
           <input
             type="text"
             value={locationInput}
@@ -237,7 +239,14 @@ export function SearchPanel({
           )}
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", fontSize: "0.92rem" }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.25rem",
+            fontSize: "0.92rem",
+          }}
+        >
           <span>Date</span>
           <input
             type="date"
@@ -290,7 +299,13 @@ export function SearchPanel({
         )}
       </form>
 
-      <div style={{ marginTop: "0.9rem", paddingTop: "0.75rem", borderTop: "1px solid rgba(107, 114, 128, 0.35)" }}>
+      <div
+        style={{
+          marginTop: "0.9rem",
+          paddingTop: "0.75rem",
+          borderTop: "1px solid rgba(107, 114, 128, 0.35)",
+        }}
+      >
         <button
           type="button"
           onClick={() => setIsEvaluationExpanded((current) => !current)}
@@ -357,7 +372,9 @@ export function SearchPanel({
                 <div>
                   <strong>Date</strong>
                   <p style={{ margin: "0.25rem 0 0" }}>
-                    {evaluatedDate ? new Date(`${evaluatedDate}T12:00:00`).toLocaleDateString() : "-"}
+                    {evaluatedDate
+                      ? new Date(`${evaluatedDate}T12:00:00`).toLocaleDateString()
+                      : "-"}
                   </p>
                 </div>
                 <div>
@@ -366,15 +383,21 @@ export function SearchPanel({
                 </div>
                 <div>
                   <strong>Cloud Cover</strong>
-                  <p style={{ margin: "0.25rem 0 0" }}>{result.weather.averageCloudCover.toFixed(1)}%</p>
+                  <p style={{ margin: "0.25rem 0 0" }}>
+                    {result.weather.averageCloudCover.toFixed(1)}%
+                  </p>
                 </div>
                 <div>
                   <strong>Moon Illumination</strong>
-                  <p style={{ margin: "0.25rem 0 0" }}>{(result.moon.illumination * 100).toFixed(1)}%</p>
+                  <p style={{ margin: "0.25rem 0 0" }}>
+                    {(result.moon.illumination * 100).toFixed(1)}%
+                  </p>
                 </div>
                 <div>
                   <strong>Moon During Window</strong>
-                  <p style={{ margin: "0.25rem 0 0" }}>{result.moon.aboveHorizonDuringWindow ? "Yes" : "No"}</p>
+                  <p style={{ margin: "0.25rem 0 0" }}>
+                    {result.moon.aboveHorizonDuringWindow ? "Yes" : "No"}
+                  </p>
                 </div>
                 <div>
                   <strong>Sunset</strong>

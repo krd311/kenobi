@@ -1,4 +1,5 @@
 import { WeatherInfo } from "@/types";
+import { addUtcDays, formatUtcDateValue } from "@/lib/dates";
 
 interface OpenMeteoHourly {
   time: string[];
@@ -11,19 +12,6 @@ interface OpenMeteoResponse {
 
 const MAX_FORECAST_DAYS_AHEAD = 16;
 const FORECAST_PAST_DAYS = 92;
-
-function formatDateUTC(date: Date): string {
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(date.getUTCDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function addUtcDays(date: Date, days: number): Date {
-  return new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days, 12, 0, 0)
-  );
-}
 
 function parseOpenMeteoUtc(value: string): number {
   return new Date(`${value}:00Z`).getTime();
@@ -88,8 +76,8 @@ export async function getWeatherInfo(
   }
 
   const useArchive = diffDays < -FORECAST_PAST_DAYS;
-  const startDate = formatDateUTC(selectedDate);
-  const endDate = formatDateUTC(addUtcDays(selectedDate, 1));
+  const startDate = formatUtcDateValue(selectedDate);
+  const endDate = formatUtcDateValue(addUtcDays(selectedDate, 1));
 
   const hourly = await fetchOpenMeteoCloudCover(
     latitude,
