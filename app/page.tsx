@@ -2,38 +2,22 @@
 
 import dynamic from "next/dynamic";
 import { type FormEvent, useEffect, useState } from "react";
-import { EvaluateResponse } from "@/types";
+import { EvaluateRequest, EvaluateResponse, Location } from "@/types";
 import { SearchPanel } from "@/app/components/SearchPanel";
 import { useDraggablePanels } from "@/app/hooks/useDraggablePanels";
+import { addLocalDays, formatDateInputValue } from "@/lib/dates";
 
 const LocationPickerMap = dynamic(() => import("@/app/components/LocationPickerMap"), {
   ssr: false,
 });
 
 function defaultDateValue(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return formatDateInputValue(new Date());
 }
 
 function maxForecastDateValue(): string {
-  const now = new Date();
-  now.setDate(now.getDate() + 16);
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return formatDateInputValue(addLocalDays(new Date(), 16));
 }
-
-interface PlaceSuggestion {
-  name: string;
-  latitude: number;
-  longitude: number;
-}
-
-
 
 function parseCoordinates(value: string): { latitude: number; longitude: number } | null {
   const text = value.trim();
@@ -49,14 +33,20 @@ function parseCoordinates(value: string): { latitude: number; longitude: number 
   return { latitude, longitude };
 }
 
+function coordinatesLabel(latitude: number, longitude: number): string {
+  return `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+}
+
+class EvaluateApiError extends Error {}
+
 export default function Home() {
   const [locationInput, setLocationInput] = useState("");
   const [mapLatitude, setMapLatitude] = useState<number | null>(null);
   const [mapLongitude, setMapLongitude] = useState<number | null>(null);
   const [startupCenterLatitude, setStartupCenterLatitude] = useState<number | null>(null);
   const [startupCenterLongitude, setStartupCenterLongitude] = useState<number | null>(null);
-  const [selectedSuggestion, setSelectedSuggestion] = useState<PlaceSuggestion | null>(null);
-  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [selectedSuggestion, setSelectedSuggestion] = useState<Location | null>(null);
+  const [suggestions, setSuggestions] = useState<Location[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLocationInputFocused, setIsLocationInputFocused] = useState(false);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
@@ -104,6 +94,49 @@ export default function Home() {
     }
   }
 
+  function syncEvaluatedResult(nextResult: EvaluateResponse, nextEvaluatedDate: string) {
+    setResult(nextResult);
+    setEvaluatedDate(nextEvaluatedDate);
+    setMapLatitude(nextResult.location.latitude);
+    setMapLongitude(nextResult.location.longitude);
+    setLocationInput(nextResult.location.name);
+    setSelectedSuggestion(nextResult.location);
+    setShowSuggestions(false);
+  }
+
+  async function evaluateLocation(body: EvaluateRequest): Promise<EvaluateResponse> {
+    const res = await fetch("/api/evaluate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new EvaluateApiError(data.error ?? "Unknown error");
+    }
+
+    return data as EvaluateResponse;
+  }
+
+  function buildEvaluateRequest(trimmedInput: string): EvaluateRequest {
+    const parsedCoordinates = parseCoordinates(trimmedInput);
+
+    if (parsedCoordinates) {
+      return { ...parsedCoordinates, date };
+    }
+
+    if (selectedSuggestion && selectedSuggestion.name === trimmedInput) {
+      return {
+        latitude: selectedSuggestion.latitude,
+        longitude: selectedSuggestion.longitude,
+        date,
+      };
+    }
+
+    return { city: trimmedInput, date };
+  }
+
   async function applyPosition(position: GeolocationPosition) {
     const latitude = position.coords.latitude;
     const longitude = position.coords.longitude;
@@ -112,7 +145,7 @@ export default function Home() {
     setStartupCenterLatitude((current) => (current === null ? latitude : current));
     setStartupCenterLongitude((current) => (current === null ? longitude : current));
 
-    const fallbackLabel = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+    const fallbackLabel = coordinatesLabel(latitude, longitude);
     const label = await reverseGeocodeLabel(latitude, longitude, fallbackLabel);
 
     setLocationInput((current) => (current.trim() ? current : label));
@@ -123,29 +156,8 @@ export default function Home() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/evaluate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ latitude, longitude, date }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Unknown error");
-        return;
-      }
-
-      const nextResult = data as EvaluateResponse;
-      setResult(nextResult);
-      setEvaluatedDate(date);
-      setMapLatitude(nextResult.location.latitude);
-      setMapLongitude(nextResult.location.longitude);
-      setLocationInput(nextResult.location.name);
-      setSelectedSuggestion({
-        name: nextResult.location.name,
-        latitude: nextResult.location.latitude,
-        longitude: nextResult.location.longitude,
-      });
+      const nextResult = await evaluateLocation({ latitude, longitude, date });
+      syncEvaluatedResult(nextResult, date);
     } catch {
       setError("Failed to auto-evaluate your location. You can still evaluate manually.");
     } finally {
@@ -215,7 +227,7 @@ export default function Home() {
           return;
         }
 
-        const data = (await res.json()) as { suggestions?: PlaceSuggestion[] };
+        const data = (await res.json()) as { suggestions?: Location[] };
         const nextSuggestions = data.suggestions ?? [];
         setSuggestions(nextSuggestions);
         setShowSuggestions(nextSuggestions.length > 0);
@@ -249,48 +261,14 @@ export default function Home() {
         return;
       }
 
-      const parsedCoordinates = parseCoordinates(trimmedInput);
-
-      const body = parsedCoordinates
-        ? {
-            latitude: parsedCoordinates.latitude,
-            longitude: parsedCoordinates.longitude,
-            date,
-          }
-        : selectedSuggestion && selectedSuggestion.name === trimmedInput
-          ? {
-              latitude: selectedSuggestion.latitude,
-              longitude: selectedSuggestion.longitude,
-              date,
-            }
-          : { city: trimmedInput, date };
-
-      const res = await fetch("/api/evaluate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error ?? "Unknown error");
-      } else {
-        const nextResult = data as EvaluateResponse;
-        setResult(nextResult);
-        setEvaluatedDate(date);
-        setMapLatitude(nextResult.location.latitude);
-        setMapLongitude(nextResult.location.longitude);
-        setLocationInput(nextResult.location.name);
-        setSelectedSuggestion({
-          name: nextResult.location.name,
-          latitude: nextResult.location.latitude,
-          longitude: nextResult.location.longitude,
-        });
-        setShowSuggestions(false);
-      }
-    } catch {
-      setError("Failed to reach the server. Please try again.");
+      const nextResult = await evaluateLocation(buildEvaluateRequest(trimmedInput));
+      syncEvaluatedResult(nextResult, date);
+    } catch (err) {
+      setError(
+        err instanceof EvaluateApiError
+          ? err.message
+          : "Failed to reach the server. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -313,7 +291,7 @@ export default function Home() {
             setMapLatitude(latitude);
             setMapLongitude(longitude);
 
-            const fallbackLabel = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+            const fallbackLabel = coordinatesLabel(latitude, longitude);
             setLocationInput(fallbackLabel);
             setSelectedSuggestion({ name: fallbackLabel, latitude, longitude });
             setShowSuggestions(false);

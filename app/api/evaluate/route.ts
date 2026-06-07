@@ -3,6 +3,7 @@ import { geocodeCity, locationFromCoords, reverseGeocodeCoords } from "@/lib/geo
 import { getSunInfo, getMoonInfo } from "@/lib/astronomy";
 import { getWeatherInfo } from "@/lib/weather";
 import { computeScore } from "@/lib/scoring";
+import { formatUtcDateValue } from "@/lib/dates";
 import { EvaluateRequest, EvaluateResponse } from "@/types";
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
@@ -31,10 +32,7 @@ function parseRequestDate(value?: string): Date | null {
 }
 
 function cacheKeyFor(latitude: number, longitude: number, date: Date): string {
-  const y = date.getUTCFullYear();
-  const m = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(date.getUTCDate()).padStart(2, "0");
-  return `${latitude.toFixed(4)}|${longitude.toFixed(4)}|${y}-${m}-${d}`;
+  return `${latitude.toFixed(4)}|${longitude.toFixed(4)}|${formatUtcDateValue(date)}`;
 }
 
 function clearExpiredCacheEntries(now: number): void {
