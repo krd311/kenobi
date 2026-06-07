@@ -5,7 +5,7 @@ import L from "leaflet";
 
 const DEFAULT_CENTER: [number, number] = [39.8283, -98.5795];
 const SELECTED_ZOOM = 13;
-const DEFAULT_ZOOM = 4;
+const DEFAULT_ZOOM = 6;
 
 type MapLayerKey = "dark" | "osm" | "topo" | "satellite";
 
@@ -68,18 +68,22 @@ function createTileLayer(config: MapLayerConfig) {
 export default function LocationPickerMap({
   latitude,
   longitude,
+  startupCenterLatitude = null,
+  startupCenterLongitude = null,
   onSelect,
   height = 260,
   borderRadius = 8,
 }: {
   latitude: number | null;
   longitude: number | null;
+  startupCenterLatitude?: number | null;
+  startupCenterLongitude?: number | null;
   onSelect: (latitude: number, longitude: number) => void;
   height?: number | string;
   borderRadius?: number;
   darkMode?: boolean;
 }) {
-  const initialLayer: MapLayerKey = "osm";
+  const initialLayer: MapLayerKey = "dark";
   const [mapLayer, setMapLayer] = useState<MapLayerKey>(initialLayer);
 
   const hasCoordinates = latitude !== null && longitude !== null;
@@ -90,7 +94,10 @@ export default function LocationPickerMap({
   const mapRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const didApplyStartupCenterRef = useRef(false);
   const onSelectRef = useRef(onSelect);
+
+  const hasStartupCenter = startupCenterLatitude !== null && startupCenterLongitude !== null;
 
   const layerOptions = useMemo(
     () =>
@@ -110,9 +117,15 @@ export default function LocationPickerMap({
       return;
     }
 
-    const map = L.map(containerRef.current, { zoomControl: false }).setView(
-      [centerLat, centerLng],
-      hasCoordinates ? SELECTED_ZOOM : DEFAULT_ZOOM
+    const map = L.map(containerRef.current, {
+      zoomControl: false,
+      doubleClickZoom: false,
+      boxZoom: false,
+    }).setView(
+      hasStartupCenter
+        ? [startupCenterLatitude, startupCenterLongitude]
+        : DEFAULT_CENTER,
+      hasStartupCenter ? SELECTED_ZOOM : DEFAULT_ZOOM
     );
     L.control.zoom({ position: "topright" }).addTo(map);
 
@@ -133,7 +146,21 @@ export default function LocationPickerMap({
       map.remove();
       mapRef.current = null;
     };
-  }, [centerLat, centerLng, hasCoordinates, initialLayer]);
+  }, [hasStartupCenter, initialLayer, startupCenterLatitude, startupCenterLongitude]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) {
+      return;
+    }
+
+    if (!didApplyStartupCenterRef.current && hasStartupCenter) {
+      didApplyStartupCenterRef.current = true;
+      map.setView([startupCenterLatitude, startupCenterLongitude], SELECTED_ZOOM, {
+        animate: true,
+      });
+    }
+  }, [hasStartupCenter, startupCenterLatitude, startupCenterLongitude]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -152,14 +179,11 @@ export default function LocationPickerMap({
       return;
     }
 
-    if (hasCoordinates) {
+    if(!map.getBounds().contains([centerLat, centerLng])) {
       map.flyTo([centerLat, centerLng], SELECTED_ZOOM, {
         animate: true,
-        duration: 1.6,
-        easeLinearity: 0.2,
+        duration: .5,
       });
-    } else {
-      map.setView([centerLat, centerLng], DEFAULT_ZOOM, { animate: true });
     }
 
     if (hasCoordinates) {

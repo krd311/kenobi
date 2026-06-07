@@ -53,6 +53,8 @@ export default function Home() {
   const [locationInput, setLocationInput] = useState("");
   const [mapLatitude, setMapLatitude] = useState<number | null>(null);
   const [mapLongitude, setMapLongitude] = useState<number | null>(null);
+  const [startupCenterLatitude, setStartupCenterLatitude] = useState<number | null>(null);
+  const [startupCenterLongitude, setStartupCenterLongitude] = useState<number | null>(null);
   const [selectedSuggestion, setSelectedSuggestion] = useState<PlaceSuggestion | null>(null);
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -107,6 +109,8 @@ export default function Home() {
     const longitude = position.coords.longitude;
     setMapLatitude(latitude);
     setMapLongitude(longitude);
+    setStartupCenterLatitude((current) => (current === null ? latitude : current));
+    setStartupCenterLongitude((current) => (current === null ? longitude : current));
 
     const fallbackLabel = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
     const label = await reverseGeocodeLabel(latitude, longitude, fallbackLabel);
@@ -171,13 +175,14 @@ export default function Home() {
     }
 
     if (!navigator.permissions?.query) {
+      requestCurrentLocation();
       return;
     }
 
     navigator.permissions
       .query({ name: "geolocation" })
       .then((status) => {
-        if (status.state === "granted") {
+        if (status.state === "granted" || status.state === "prompt") {
           requestCurrentLocation();
         }
       })
@@ -299,6 +304,8 @@ export default function Home() {
         <LocationPickerMap
           latitude={mapLatitude}
           longitude={mapLongitude}
+          startupCenterLatitude={startupCenterLatitude}
+          startupCenterLongitude={startupCenterLongitude}
           darkMode
           borderRadius={0}
           height="100%"
