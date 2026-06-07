@@ -4,6 +4,14 @@ import { type FormEvent, type PointerEvent, useEffect, useState } from "react";
 import { type PanelRect } from "@/app/hooks/useDraggablePanels";
 import { dragHandleStyle, getBasePanelStyle, resizeHandleStyle } from "@/app/components/panelStyles";
 import { EvaluateResponse, Location } from "@/types";
+import styles from "./SearchPanel.module.css";
+
+function formatTimeWithoutSeconds(value: string): string {
+  return new Date(value).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
 
 export function SearchPanel({
   rect,
@@ -80,25 +88,19 @@ export function SearchPanel({
 
   return (
     <section
+      className={styles.panel}
       style={{
         ...getBasePanelStyle(rect),
         height: "auto",
-        overflow: "visible",
-        padding: "14px",
-        transition: "opacity 200ms ease, transform 200ms ease",
       }}
     >
       <div
+        className={styles.dragHandle}
         onPointerDown={onStartDrag}
         onPointerMove={onDragMove}
         onPointerUp={onEndDrag}
         onPointerCancel={onEndDrag}
-        style={{
-          fontSize: "0.8rem",
-          color: "#9ca3af",
-          marginBottom: "0.35rem",
-          ...dragHandleStyle,
-        }}
+        style={dragHandleStyle}
       ></div>
       <div
         onPointerDown={onStartResize}
@@ -107,22 +109,15 @@ export function SearchPanel({
         onPointerCancel={onEndResize}
         style={resizeHandleStyle}
       />
-      <h1 style={{ margin: 0, fontSize: "1.1rem" }}>Stargazing Planner</h1>
-      <p style={{ margin: "0.35rem 0 0.8rem", color: "#d1d5db", fontSize: "0.92rem" }}>
+      <h1 className={styles.title}>Stargazing Planner</h1>
+      <p className={styles.description}>
         Search by city, address, or coordinates (lat, lon).
       </p>
 
-      <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-        <div
-          style={{
-            position: "relative",
-            display: "grid",
-            gridTemplateColumns: "1fr auto",
-            gap: "0.5rem",
-            alignItems: "center",
-          }}
-        >
+      <form className={styles.form} onSubmit={onSubmit}>
+        <div className={styles.locationRow}>
           <input
+            className={`${styles.input} ${styles.locationInput}`}
             type="text"
             value={locationInput}
             onChange={(e) => {
@@ -147,19 +142,10 @@ export function SearchPanel({
               setIsLocationInputFocused(false);
               setTimeout(() => setShowSuggestions(false), 100);
             }}
-            style={{
-              width: "100%",
-              boxSizing: "border-box",
-              height: 44,
-              padding: "0 0.75rem",
-              borderRadius: 9,
-              border: "1px solid #2a2f38",
-              background: "#111827",
-              color: "#fff",
-            }}
           />
 
           <button
+            className={styles.currentLocationButton}
             type="button"
             onClick={() => {
               setShowSuggestions(false);
@@ -168,44 +154,15 @@ export function SearchPanel({
             disabled={loading}
             aria-label="Use my current location"
             title="Use my current location"
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 9,
-              border: "1px solid #2a2f38",
-              background: "#111827",
-              color: "#cbd5e1",
-              fontSize: "1rem",
-              fontWeight: 700,
-              letterSpacing: "0.02em",
-              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.25)",
-              cursor: loading ? "default" : "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 0,
-            }}
           >
             📍
           </button>
 
           {showSuggestions && (
-            <div
-              style={{
-                position: "absolute",
-                top: "calc(100% + 6px)",
-                left: 0,
-                right: 0,
-                background: "#111827",
-                border: "1px solid #2a2f38",
-                borderRadius: 9,
-                maxHeight: 220,
-                overflowY: "auto",
-                zIndex: 1001,
-              }}
-            >
+            <div className={styles.suggestions}>
               {suggestions.map((suggestion) => (
                 <button
+                  className={styles.suggestionButton}
                   key={`${suggestion.name}-${suggestion.latitude}-${suggestion.longitude}`}
                   type="button"
                   onClick={() => {
@@ -218,37 +175,21 @@ export function SearchPanel({
                   onMouseDown={(event) => {
                     event.preventDefault();
                   }}
-                  style={{
-                    width: "100%",
-                    textAlign: "left",
-                    padding: "0.6rem 0.75rem",
-                    border: "none",
-                    background: "transparent",
-                    color: "#fff",
-                    cursor: "pointer",
-                    transition: "background-color 150ms ease",
-                  }}
                 >
                   {suggestion.name}
                 </button>
               ))}
               {loadingSuggestions && (
-                <div style={{ padding: "0.6rem 0.75rem", color: "#9ca3af" }}>Searching...</div>
+                <div className={styles.suggestionStatus}>Searching...</div>
               )}
             </div>
           )}
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.25rem",
-            fontSize: "0.92rem",
-          }}
-        >
+        <div className={styles.fieldGroup}>
           <span>Date</span>
           <input
+            className={`${styles.input} ${styles.dateInput}`}
             type="date"
             aria-label="Date"
             value={date}
@@ -258,120 +199,73 @@ export function SearchPanel({
             onClick={(e) => {
               e.currentTarget.showPicker?.();
             }}
-            style={{
-              width: "100%",
-              boxSizing: "border-box",
-              padding: "0.55rem 0.7rem",
-              borderRadius: 9,
-              border: "1px solid #2a2f38",
-              background: "#111827",
-              color: "#fff",
-              colorScheme: "dark",
-            }}
           />
-          <small style={{ color: "#9ca3af" }}>
+          <small className={styles.fieldHint}>
             Future dates are available up to 16 days ahead based on forecast data.
           </small>
         </div>
 
         <button
+          className={styles.submitButton}
           type="submit"
           disabled={loading}
-          style={{
-            padding: "0.62rem 0.9rem",
-            borderRadius: 9,
-            border: "none",
-            cursor: loading ? "default" : "pointer",
-            background: "#f3f4f6",
-            color: "#111827",
-            fontWeight: 600,
-            transition: "opacity 150ms ease, transform 150ms ease",
-            WebkitTapHighlightColor: "transparent",
-          }}
         >
           {loading ? "Evaluating…" : "Evaluate Location"}
         </button>
 
         {error && (
-          <p style={{ margin: 0, color: "#fca5a5" }} role="alert" aria-live="polite">
+          <p className={styles.error} role="alert" aria-live="polite">
             {error}
           </p>
         )}
       </form>
 
-      <div
-        style={{
-          marginTop: "0.9rem",
-          paddingTop: "0.75rem",
-          borderTop: "1px solid rgba(107, 114, 128, 0.35)",
-        }}
-      >
+      <div className={styles.evaluationSection}>
         <button
+          className={styles.evaluationToggle}
           type="button"
           onClick={() => setIsEvaluationExpanded((current) => !current)}
-          style={{
-            width: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "0.5rem 0.6rem",
-            borderRadius: 8,
-            border: "1px solid #2a2f38",
-            background: "#111827",
-            color: "#f3f4f6",
-            cursor: "pointer",
-            fontWeight: 600,
-            textAlign: "left",
-          }}
           aria-expanded={isEvaluationExpanded}
           aria-controls="evaluation-results"
         >
           <span>Evaluation</span>
-          <span style={{ color: "#9ca3af", fontSize: "0.85rem" }}>
+          <span className={styles.toggleLabel}>
             {isEvaluationExpanded ? "Hide" : "Show"}
           </span>
         </button>
 
         <div
+          className={styles.evaluationResults}
           id="evaluation-results"
           style={{
-            marginTop: "0.75rem",
-            overflow: "hidden",
             maxHeight: isEvaluationExpanded ? 1200 : 0,
             opacity: isEvaluationExpanded ? 1 : 0,
             transform: isEvaluationExpanded ? "translateY(0)" : "translateY(-4px)",
-            transition: "max-height 280ms ease, opacity 220ms ease, transform 220ms ease",
             pointerEvents: isEvaluationExpanded ? "auto" : "none",
           }}
           aria-hidden={!isEvaluationExpanded}
         >
           {loading && !result && (
-            <p style={{ margin: "0 0 0.55rem", color: "#d1d5db" }}>Evaluating this area…</p>
+            <p className={styles.loadingState}>Evaluating this area…</p>
           )}
 
           {!result && (
-            <p style={{ margin: 0, color: "#d1d5db" }}>
+            <p className={styles.emptyState}>
               Choose a location and date, then evaluate to see stargazing details.
             </p>
           )}
 
           {result && (
             <>
-              <h2 style={{ margin: 0, fontSize: "1.02rem" }}>{result.location.name}</h2>
-              <p style={{ margin: "0.25rem 0 0.75rem", color: "#9ca3af", fontSize: "0.9rem" }}>
+              <h2 className={styles.resultTitle}>{result.location.name}</h2>
+              <p className={styles.coordinates}>
                 {result.location.latitude.toFixed(4)}, {result.location.longitude.toFixed(4)}
               </p>
 
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
-                  gap: "0.75rem",
-                }}
-              >
+              <div className={styles.metricGrid}>
                 <div>
                   <strong>Date</strong>
-                  <p style={{ margin: "0.25rem 0 0" }}>
+                  <p className={styles.metricValue}>
                     {evaluatedDate
                       ? new Date(`${evaluatedDate}T12:00:00`).toLocaleDateString()
                       : "-"}
@@ -379,41 +273,43 @@ export function SearchPanel({
                 </div>
                 <div>
                   <strong>Score</strong>
-                  <p style={{ margin: "0.25rem 0 0" }}>{result.score.value} / 100</p>
+                  <p className={styles.metricValue}>{result.score.value} / 100</p>
                 </div>
                 <div>
                   <strong>Cloud Cover</strong>
-                  <p style={{ margin: "0.25rem 0 0" }}>
+                  <p className={styles.metricValue}>
                     {result.weather.averageCloudCover.toFixed(1)}%
                   </p>
                 </div>
                 <div>
                   <strong>Moon Illumination</strong>
-                  <p style={{ margin: "0.25rem 0 0" }}>
+                  <p className={styles.metricValue}>
                     {(result.moon.illumination * 100).toFixed(1)}%
                   </p>
                 </div>
                 <div>
                   <strong>Moon During Window</strong>
-                  <p style={{ margin: "0.25rem 0 0" }}>
+                  <p className={styles.metricValue}>
                     {result.moon.aboveHorizonDuringWindow ? "Yes" : "No"}
                   </p>
                 </div>
                 <div>
                   <strong>Sunset</strong>
-                  <p style={{ margin: "0.25rem 0 0" }}>{new Date(result.sun.sunset).toLocaleTimeString()}</p>
+                  <p className={styles.metricValue}>
+                    {formatTimeWithoutSeconds(result.sun.sunset)}
+                  </p>
                 </div>
                 <div>
                   <strong>Astronomical Dusk</strong>
-                  <p style={{ margin: "0.25rem 0 0" }}>
-                    {new Date(result.sun.astronomicalDusk).toLocaleTimeString()}
+                  <p className={styles.metricValue}>
+                    {formatTimeWithoutSeconds(result.sun.astronomicalDusk)}
                   </p>
                 </div>
               </div>
 
-              <div style={{ marginTop: "0.85rem" }}>
+              <div className={styles.reasoning}>
                 <strong>Reasoning</strong>
-                <ul style={{ margin: "0.35rem 0 0", paddingLeft: "1.15rem" }}>
+                <ul className={styles.reasonList}>
                   {result.score.reasons.map((reason, index) => (
                     <li key={index}>{reason}</li>
                   ))}
