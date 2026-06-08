@@ -13,6 +13,10 @@ function formatTimeWithoutSeconds(value: string): string {
   });
 }
 
+function formatOptionalNumber(value: number | null, digits: number): string {
+  return value === null ? "Unavailable" : value.toFixed(digits);
+}
+
 export function SearchPanel({
   rect,
   loading,
@@ -238,7 +242,7 @@ export function SearchPanel({
           className={styles.evaluationResults}
           id="evaluation-results"
           style={{
-            maxHeight: isEvaluationExpanded ? 1200 : 0,
+            maxHeight: isEvaluationExpanded ? 1500 : 0,
             opacity: isEvaluationExpanded ? 1 : 0,
             transform: isEvaluationExpanded ? "translateY(0)" : "translateY(-4px)",
             pointerEvents: isEvaluationExpanded ? "auto" : "none",
@@ -282,6 +286,34 @@ export function SearchPanel({
                   </p>
                 </div>
                 <div>
+                  <strong>Bortle Class</strong>
+                  <p className={styles.metricValue}>
+                    {result.lightPollution.bortleClass
+                      ? `Class ${result.lightPollution.bortleClass}`
+                      : "Unavailable"}
+                  </p>
+                </div>
+                <div>
+                  <strong>Sky Quality</strong>
+                  <p className={styles.metricValue}>
+                    {result.lightPollution.sqm === null
+                      ? "Unavailable"
+                      : `${formatOptionalNumber(result.lightPollution.sqm, 2)} mag/arcsec^2`}
+                  </p>
+                </div>
+                <div>
+                  <strong>Light Pollution</strong>
+                  <p className={styles.metricValue}>{result.lightPollution.qualityLabel}</p>
+                </div>
+                <div>
+                  <strong>Artificial Brightness</strong>
+                  <p className={styles.metricValue}>
+                    {result.lightPollution.artificialBrightnessRatio === null
+                      ? "Unavailable"
+                      : `${formatOptionalNumber(result.lightPollution.artificialBrightnessRatio, 2)}x natural`}
+                  </p>
+                </div>
+                <div>
                   <strong>Moon Illumination</strong>
                   <p className={styles.metricValue}>
                     {(result.moon.illumination * 100).toFixed(1)}%
@@ -306,6 +338,11 @@ export function SearchPanel({
                   </p>
                 </div>
               </div>
+
+              <p className={styles.sourceNote}>
+                Light pollution source: {result.lightPollution.source}
+                {result.lightPollution.note ? ` (${result.lightPollution.note})` : ""}
+              </p>
 
               <div className={styles.reasoning}>
                 <strong>Reasoning</strong>

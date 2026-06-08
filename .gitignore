@@ -16,6 +16,12 @@
 # production
 /build
 
+# large local source datasets
+/data/source/
+/data/light-pollution/*.kmz
+*.tif
+*.tiff
+
 # misc
 .DS_Store
 *.pem
