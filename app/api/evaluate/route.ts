@@ -4,6 +4,7 @@ import { getSunInfo, getMoonInfo } from "@/lib/astronomy";
 import { getWeatherInfo } from "@/lib/weather";
 import { computeScore } from "@/lib/scoring";
 import { formatUtcDateValue } from "@/lib/dates";
+import { getLightPollutionInfo } from "@/lib/lightPollution";
 import { EvaluateRequest, EvaluateResponse } from "@/types";
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
@@ -83,16 +84,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       });
     }
 
-    const [sun, moon, weather] = await Promise.all([
+    const [sun, moon, weather, lightPollution] = await Promise.all([
       Promise.resolve(getSunInfo(targetDate, location.latitude, location.longitude)),
       Promise.resolve(getMoonInfo(targetDate, location.latitude, location.longitude)),
       getWeatherInfo(location.latitude, location.longitude, targetDate),
+      getLightPollutionInfo(location.latitude, location.longitude),
     ]);
 
     const score = computeScore(
       weather.averageCloudCover,
       moon.illumination,
-      moon.aboveHorizonDuringWindow
+      moon.aboveHorizonDuringWindow,
+      lightPollution
     );
 
     const response: EvaluateResponse = {
@@ -100,6 +103,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       sun,
       moon,
       weather,
+      lightPollution,
       score,
     };
 
