@@ -5,11 +5,20 @@ import { type PanelRect } from "@/app/hooks/useDraggablePanels";
 import { dragHandleStyle, getBasePanelStyle, resizeHandleStyle } from "@/app/components/panelStyles";
 import { EvaluateResponse, Location } from "@/types";
 import styles from "./SearchPanel.module.css";
+import { RingChart } from "./RingChart";
 
 function formatTimeWithoutSeconds(value: string): string {
   return new Date(value).toLocaleTimeString([], {
     hour: "numeric",
     minute: "2-digit",
+  });
+}
+
+function formatDisplayDate(value: string): string {
+  return new Date(`${value}T12:00:00`).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
   });
 }
 
@@ -261,98 +270,46 @@ export function SearchPanel({
 
           {result && (
             <>
-              <h2 className={styles.resultTitle}>{result.location.name}</h2>
-              <p className={styles.coordinates}>
-                {result.location.latitude.toFixed(4)}, {result.location.longitude.toFixed(4)}
-              </p>
+              {/* Show the scoring ring to the right of the location and date */}
+              <div className={styles.dateAndScore}>
+                <div>
+                  <h2 className={styles.resultTitle}>
+                    {result.location.name.split(",").slice(0, 2).join(", ")}
+                  </h2>
+                  <p className={styles.coordinates}>
+                    {evaluatedDate ? formatDisplayDate(evaluatedDate) : "-"}
+                  </p>
+                  <div className={styles.sunsetAndDusk}>
+                    <div className={styles.sunsetAndDuskItem}>
+                      <div className={styles.sunsetAndDuskLabel}>
+                        Sunset
+                      </div>
+                      <div className={styles.sunsetAndDuskTime}>
+                        {formatTimeWithoutSeconds(result.sun.sunset)}
+                      </div>
+                    </div>
+                    <div className={styles.sunsetAndDuskItem}>
+                      <div className={styles.sunsetAndDuskLabel}>
+                        Dusk
+                      </div>
+                      <div className={styles.sunsetAndDuskTime}>
+                        {formatTimeWithoutSeconds(result.sun.astronomicalDusk)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <RingChart value={result.score.value} size={100} />
+              </div>
 
               <div className={styles.metricGrid}>
-                <div>
-                  <strong>Date</strong>
-                  <p className={styles.metricValue}>
-                    {evaluatedDate
-                      ? new Date(`${evaluatedDate}T12:00:00`).toLocaleDateString()
-                      : "-"}
-                  </p>
-                </div>
-                <div>
-                  <strong>Score</strong>
-                  <p className={styles.metricValue}>{result.score.value} / 100</p>
-                </div>
-                <div>
-                  <strong>Cloud Cover</strong>
-                  <p className={styles.metricValue}>
-                    {result.weather.averageCloudCover.toFixed(1)}%
-                  </p>
-                </div>
-                <div>
-                  <strong>Bortle Class</strong>
-                  <p className={styles.metricValue}>
-                    {result.lightPollution.bortleClass
-                      ? `Class ${result.lightPollution.bortleClass}`
-                      : "Unavailable"}
-                  </p>
-                </div>
-                <div>
-                  <strong>Sky Quality</strong>
-                  <p className={styles.metricValue}>
-                    {result.lightPollution.sqm === null
-                      ? "Unavailable"
-                      : `${formatOptionalNumber(result.lightPollution.sqm, 2)} mag/arcsec^2`}
-                  </p>
-                </div>
-                <div>
-                  <strong>Light Pollution</strong>
-                  <p className={styles.metricValue}>{result.lightPollution.qualityLabel}</p>
-                </div>
-                <div>
-                  <strong>Artificial Brightness</strong>
-                  <p className={styles.metricValue}>
-                    {result.lightPollution.artificialBrightnessRatio === null
-                      ? "Unavailable"
-                      : `${formatOptionalNumber(result.lightPollution.artificialBrightnessRatio, 2)}x natural`}
-                  </p>
-                </div>
-                <div>
-                  <strong>Moon Illumination</strong>
-                  <p className={styles.metricValue}>
-                    {(result.moon.illumination * 100).toFixed(1)}%
-                  </p>
-                </div>
-                <div>
-                  <strong>Moon During Window</strong>
-                  <p className={styles.metricValue}>
-                    {result.moon.aboveHorizonDuringWindow ? "Yes" : "No"}
-                  </p>
-                </div>
-                <div>
-                  <strong>Sunset</strong>
-                  <p className={styles.metricValue}>
-                    {formatTimeWithoutSeconds(result.sun.sunset)}
-                  </p>
-                </div>
-                <div>
-                  <strong>Astronomical Dusk</strong>
-                  <p className={styles.metricValue}>
-                    {formatTimeWithoutSeconds(result.sun.astronomicalDusk)}
-                  </p>
-                </div>
+                
               </div>
 
               <p className={styles.sourceNote}>
                 Light pollution source: {result.lightPollution.source}
                 {result.lightPollution.note ? ` (${result.lightPollution.note})` : ""}
               </p>
-
-              <div className={styles.reasoning}>
-                <strong>Reasoning</strong>
-                <ul className={styles.reasonList}>
-                  {result.score.reasons.map((reason, index) => (
-                    <li key={index}>{reason}</li>
-                  ))}
-                </ul>
-              </div>
-            </>
+            </> 
           )}
         </div>
       </div>

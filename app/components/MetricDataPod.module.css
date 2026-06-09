@@ -1,0 +1,68 @@
+.pod {
+  background: rgba(17, 24, 39, 0.72);
+  border: 1px solid #2a2f38;
+  border-radius: 8px;
+  min-width: 0;
+  padding: 0.75rem;
+}
+
+.header {
+  align-items: flex-start;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+
+.label {
+  color: #d1d5db;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.status {
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0.25rem 0.4rem;
+  white-space: nowrap;
+}
+
+.statusGood {
+  background: rgba(16, 185, 129, 0.16);
+  color: #86efac;
+}
+
+.statusWarning {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fcd34d;
+}
+
+.statusPoor {
+  background: rgba(239, 68, 68, 0.16);
+  color: #fca5a5;
+}
+
+.value {
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.15;
+  margin-top: 0.35rem;
+  overflow-wrap: anywhere;
+}
+
+.subvalue {
+  color: #9ca3af;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  margin-top: 0.25rem;
+}
+
+.note {
+  color: #9ca3af;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  margin-top: 0.55rem;
+}

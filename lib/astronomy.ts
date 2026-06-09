@@ -38,7 +38,7 @@ export function getSunInfo(date: Date, latitude: number, longitude: number): Sun
 }
 
 /**
- * Compute moon phase illumination and rise/set times,
+ * Compute moon phase illumination, rise/set times, and
  * and determine whether the moon is above the horizon during the observing window.
  */
 export function getMoonInfo(date: Date, latitude: number, longitude: number): MoonInfo {
@@ -47,6 +47,27 @@ export function getMoonInfo(date: Date, latitude: number, longitude: number): Mo
   const moonTimes = SunCalc.getMoonTimes(date, latitude, longitude);
   const moonrise = moonTimes.rise ? moonTimes.rise.toISOString() : null;
   const moonset = moonTimes.set ? moonTimes.set.toISOString() : null;
+  const moonPhaseNum = SunCalc.getMoonIllumination(date).phase;
+
+  // Convert moon phase to a label (New, Waxing Crescent, First Quarter, etc.)
+  let moonPhase: string;
+  if (moonPhaseNum === 0 || moonPhaseNum === 1) {
+    moonPhase = "New Moon";
+  } else if (moonPhaseNum > 0 && moonPhaseNum < 0.25) {
+    moonPhase = "Waxing Crescent";
+  } else if (moonPhaseNum === 0.25) {
+    moonPhase = "First Quarter";
+  } else if (moonPhaseNum > 0.25 && moonPhaseNum < 0.5) {
+    moonPhase = "Waxing Gibbous";
+  } else if (moonPhaseNum === 0.5) {
+    moonPhase = "Full Moon";
+  } else if (moonPhaseNum > 0.5 && moonPhaseNum < 0.75) {
+    moonPhase = "Waning Gibbous";
+  } else if (moonPhaseNum === 0.75) {
+    moonPhase = "Last Quarter";
+  } else {
+    moonPhase = "Waning Crescent";
+  }
 
   const { start, end } = observingWindow(date, latitude, longitude);
 
@@ -66,6 +87,7 @@ export function getMoonInfo(date: Date, latitude: number, longitude: number): Mo
     illumination,
     moonrise,
     moonset,
+    moonPhase,
     aboveHorizonDuringWindow,
   };
 }

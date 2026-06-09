@@ -13,6 +13,7 @@ export interface MoonInfo {
   illumination: number;
   moonrise: string | null;
   moonset: string | null;
+  moonPhase: string;
   aboveHorizonDuringWindow: boolean;
 }
 
