@@ -16,7 +16,7 @@ function defaultDateValue(): string {
 }
 
 function maxForecastDateValue(): string {
-  return formatDateInputValue(addLocalDays(new Date(), 16));
+  return formatDateInputValue(addLocalDays(new Date(), 2));
 }
 
 function parseCoordinates(value: string): { latitude: number; longitude: number } | null {
@@ -55,7 +55,7 @@ export default function Home() {
   const [result, setResult] = useState<EvaluateResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const minDate = "1940-01-01";
+  const minDate = defaultDateValue();
   const maxDate = maxForecastDateValue();
 
   const {

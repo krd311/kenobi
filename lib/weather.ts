@@ -1,56 +1,200 @@
 import { WeatherInfo } from "@/types";
-import { addUtcDays, formatUtcDateValue } from "@/lib/dates";
 
-interface OpenMeteoHourly {
-  time: string[];
-  cloud_cover: Array<number | null>;
+interface SevenTimerWind {
+  direction: string;
+  speed: number;
 }
 
-interface OpenMeteoResponse {
-  hourly?: OpenMeteoHourly;
+interface SevenTimerAstroPoint {
+  timepoint: number;
+  cloudcover: number;
+  seeing: number;
+  transparency: number;
+  lifted_index: number;
+  rh2m: number;
+  wind10m: SevenTimerWind;
+  temp2m: number;
+  prec_type: "none" | "rain" | "snow";
 }
 
-const MAX_FORECAST_DAYS_AHEAD = 16;
-const FORECAST_PAST_DAYS = 92;
-
-function parseOpenMeteoUtc(value: string): number {
-  return new Date(`${value}:00Z`).getTime();
+interface SevenTimerAstroResponse {
+  product?: string;
+  init?: string;
+  dataseries?: SevenTimerAstroPoint[];
 }
 
-async function fetchOpenMeteoCloudCover(
+const MAX_FORECAST_DAYS_AHEAD = 2;
+const HOURS_PER_DAY = 24;
+const OBSERVING_WINDOW_START_HOUR = 20;
+const OBSERVING_WINDOW_END_HOUR = 2;
+
+const CLOUD_COVER_PERCENT_BY_BUCKET: Record<number, number> = {
+  1: 3,
+  2: 12.5,
+  3: 25,
+  4: 37.5,
+  5: 50,
+  6: 62.5,
+  7: 75,
+  8: 87.5,
+  9: 97,
+};
+
+const RELATIVE_HUMIDITY_LABEL_BY_BUCKET: Record<number, string> = {
+  [-4]: "0-5%",
+  [-3]: "5-10%",
+  [-2]: "10-15%",
+  [-1]: "15-20%",
+  0: "20-25%",
+  1: "25-30%",
+  2: "30-35%",
+  3: "35-40%",
+  4: "40-45%",
+  5: "45-50%",
+  6: "50-55%",
+  7: "55-60%",
+  8: "60-65%",
+  9: "65-70%",
+  10: "70-75%",
+  11: "75-80%",
+  12: "80-85%",
+  13: "85-90%",
+  14: "90-95%",
+  15: "95-99%",
+  16: "100%",
+};
+
+function parseSevenTimerInit(value: string): Date | null {
+  const match = /^(\d{4})(\d{2})(\d{2})(\d{2})$/.exec(value);
+  if (!match) return null;
+
+  return new Date(
+    Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), Number(match[4]))
+  );
+}
+
+function average(values: number[]): number {
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function mostCommonValue<T>(values: T[]): T {
+  const counts = new Map<T, number>();
+
+  for (const value of values) {
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+
+  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+}
+
+function cloudCoverLabel(cloudCover: number): string {
+  if (cloudCover <= 10) return "Clear";
+  if (cloudCover <= 25) return "Mostly Clear";
+  if (cloudCover <= 50) return "Partly Cloudy";
+  if (cloudCover <= 75) return "Mostly Cloudy";
+  return "Overcast";
+}
+
+function seeingLabel(seeing: number): string {
+  if (seeing <= 2) return "Excellent";
+  if (seeing <= 4) return "Good";
+  if (seeing <= 6) return "Fair";
+  return "Poor";
+}
+
+function transparencyLabel(transparency: number): string {
+  if (transparency <= 2) return "Excellent";
+  if (transparency <= 4) return "Good";
+  if (transparency <= 6) return "Fair";
+  return "Poor";
+}
+
+function windSpeedLabel(speed: number): string {
+  if (speed <= 1) return "Calm";
+  if (speed <= 2) return "Light";
+  if (speed <= 3) return "Moderate";
+  if (speed <= 4) return "Fresh";
+  if (speed <= 5) return "Strong";
+  if (speed <= 6) return "Gale";
+  if (speed <= 7) return "Storm";
+  return "Hurricane";
+}
+
+function precipitationLabel(precipitationType: WeatherInfo["precipitationType"]): string {
+  if (precipitationType === "rain") return "Rain";
+  if (precipitationType === "snow") return "Snow";
+  return "None";
+}
+
+function observingWindow(date: Date, longitude: number): { start: Date; end: Date } {
+  const offsetMinutes = Math.round((longitude / 15) * 60);
+
+  const start = new Date(
+    Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate(),
+      OBSERVING_WINDOW_START_HOUR,
+      0,
+      0
+    ) -
+      offsetMinutes * 60_000
+  );
+
+  const end = new Date(
+    Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate() + 1,
+      OBSERVING_WINDOW_END_HOUR,
+      0,
+      0
+    ) -
+      offsetMinutes * 60_000
+  );
+
+  return { start, end };
+}
+
+function utcDateKey(date: Date): number {
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12, 0, 0);
+}
+
+function localSolarTodayKey(longitude: number): number {
+  const offsetMinutes = Math.round((longitude / 15) * 60);
+  const localSolarNow = new Date(Date.now() + offsetMinutes * 60_000);
+
+  return Date.UTC(
+    localSolarNow.getUTCFullYear(),
+    localSolarNow.getUTCMonth(),
+    localSolarNow.getUTCDate(),
+    12,
+    0,
+    0
+  );
+}
+
+async function fetchSevenTimerAstro(
   latitude: number,
-  longitude: number,
-  startDate: string,
-  endDate: string,
-  useArchive: boolean
-): Promise<OpenMeteoHourly> {
-  const baseUrl = useArchive
-    ? "https://archive-api.open-meteo.com/v1/archive"
-    : "https://api.open-meteo.com/v1/forecast";
-
+  longitude: number
+): Promise<SevenTimerAstroResponse> {
   const url =
-    `${baseUrl}?latitude=${latitude.toFixed(4)}` +
-    `&longitude=${longitude.toFixed(4)}` +
-    `&start_date=${startDate}&end_date=${endDate}` +
-    "&hourly=cloud_cover&timezone=UTC";
+    "https://www.7timer.info/bin/api.pl" +
+    `?lon=${longitude.toFixed(3)}` +
+    `&lat=${latitude.toFixed(3)}` +
+    "&product=astro&output=json";
 
   const res = await fetch(url);
   if (!res.ok) {
-    throw new Error(`Open-Meteo weather API error: ${res.status} ${res.statusText}`);
+    throw new Error(`7Timer ASTRO API error: ${res.status} ${res.statusText}`);
   }
 
-  const data = (await res.json()) as OpenMeteoResponse;
-  if (!data.hourly || !data.hourly.time || !data.hourly.cloud_cover) {
-    throw new Error("Open-Meteo weather data is unavailable for the selected date.");
-  }
-
-  return data.hourly;
+  return (await res.json()) as SevenTimerAstroResponse;
 }
 
 /**
- * Fetch hourly cloud cover from Open-Meteo.
- * Supports historical dates and forecast-range future dates.
- * Averages cloud cover for the observing window (8 PM – 2 AM).
+ * Fetch 7Timer ASTRO forecast data and aggregate the observing window
+ * from 8 PM to 2 AM local solar time.
  */
 export async function getWeatherInfo(
   latitude: number,
@@ -60,66 +204,70 @@ export async function getWeatherInfo(
   const selectedDate = new Date(
     Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12, 0, 0)
   );
-  const today = new Date();
-  const todayDate = new Date(
-    Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 12, 0, 0)
-  );
 
   const diffDays = Math.floor(
-    (selectedDate.getTime() - todayDate.getTime()) / (24 * 60 * 60 * 1000)
+    (utcDateKey(selectedDate) - localSolarTodayKey(longitude)) /
+      (HOURS_PER_DAY * 60 * 60 * 1000)
   );
 
-  if (diffDays > MAX_FORECAST_DAYS_AHEAD) {
+  if (diffDays < 0 || diffDays > MAX_FORECAST_DAYS_AHEAD) {
     throw new Error(
-      `Weather forecast is currently available up to ${MAX_FORECAST_DAYS_AHEAD} days in the future.`
+      `7Timer ASTRO forecast is currently available from today through ${MAX_FORECAST_DAYS_AHEAD} days ahead.`
     );
   }
 
-  const useArchive = diffDays < -FORECAST_PAST_DAYS;
-  const startDate = formatUtcDateValue(selectedDate);
-  const endDate = formatUtcDateValue(addUtcDays(selectedDate, 1));
-
-  const hourly = await fetchOpenMeteoCloudCover(
-    latitude,
-    longitude,
-    startDate,
-    endDate,
-    useArchive
-  );
-
-  const offsetMinutes = Math.round((longitude / 15) * 60);
-  const windowStart = new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 20, 0, 0) -
-      offsetMinutes * 60_000
-  );
-  const windowEnd = new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1, 2, 0, 0) -
-      offsetMinutes * 60_000
-  );
-
-  const cloudValues = hourly.time
-    .map((time, index) => {
-      const timestamp = parseOpenMeteoUtc(time);
-      const cloudCover = hourly.cloud_cover[index];
-      return { timestamp, cloudCover };
-    })
-    .filter(
-      (entry) =>
-        entry.timestamp >= windowStart.getTime() &&
-        entry.timestamp <= windowEnd.getTime() &&
-        typeof entry.cloudCover === "number" &&
-        Number.isFinite(entry.cloudCover)
-    )
-    .map((entry) => entry.cloudCover as number);
-
-  if (cloudValues.length === 0) {
-    throw new Error("No weather data available for the selected date and location.");
+  const data = await fetchSevenTimerAstro(latitude, longitude);
+  if (!data.init || !data.dataseries || data.dataseries.length === 0) {
+    throw new Error("7Timer ASTRO forecast data is unavailable for this location.");
   }
 
-  const averageCloudCover =
-    cloudValues.length > 0
-      ? cloudValues.reduce((a, b) => a + b, 0) / cloudValues.length
-      : 50;
+  const initDate = parseSevenTimerInit(data.init);
+  if (!initDate) {
+    throw new Error("7Timer ASTRO forecast initialization time is invalid.");
+  }
 
-  return { averageCloudCover };
+  const { start, end } = observingWindow(date, longitude);
+  const windowPoints = data.dataseries.filter((point) => {
+    const validTime = initDate.getTime() + point.timepoint * 60 * 60 * 1000;
+    return validTime >= start.getTime() && validTime <= end.getTime();
+  });
+
+  if (windowPoints.length === 0) {
+    throw new Error("No 7Timer ASTRO forecast data is available for the observing window.");
+  }
+
+  const averageCloudCover = average(
+    windowPoints.map((point) => CLOUD_COVER_PERCENT_BY_BUCKET[point.cloudcover] ?? 50)
+  );
+  const averageSeeing = average(windowPoints.map((point) => point.seeing));
+  const averageTransparency = average(windowPoints.map((point) => point.transparency));
+  const temperaturesC = windowPoints.map((point) => point.temp2m);
+  const averageTemperatureC = average(temperaturesC);
+  const lowTemperatureC = Math.min(...temperaturesC);
+  const highTemperatureC = Math.max(...temperaturesC);
+  const humidityBucket = Math.round(average(windowPoints.map((point) => point.rh2m)));
+  const windSpeedBucket = Math.round(average(windowPoints.map((point) => point.wind10m.speed)));
+  const windDirection = mostCommonValue(windowPoints.map((point) => point.wind10m.direction));
+  const liftedIndex = Math.round(average(windowPoints.map((point) => point.lifted_index)));
+  const precipitationType = mostCommonValue(windowPoints.map((point) => point.prec_type));
+
+  return {
+    averageCloudCover,
+    cloudCoverLabel: cloudCoverLabel(averageCloudCover),
+    seeing: averageSeeing,
+    seeingLabel: seeingLabel(averageSeeing),
+    transparency: averageTransparency,
+    transparencyLabel: transparencyLabel(averageTransparency),
+    precipitationType,
+    precipitationLabel: precipitationLabel(precipitationType),
+    relativeHumidity: RELATIVE_HUMIDITY_LABEL_BY_BUCKET[humidityBucket] ?? "Unavailable",
+    windDirection,
+    windSpeed: windSpeedBucket,
+    windSpeedLabel: windSpeedLabel(windSpeedBucket),
+    temperatureC: averageTemperatureC,
+    lowTemperatureC,
+    highTemperatureC,
+    liftedIndex,
+    source: "7Timer ASTRO",
+  };
 }

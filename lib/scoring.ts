@@ -1,4 +1,4 @@
-import { LightPollutionInfo, ScoreInfo } from "@/types";
+import { LightPollutionInfo, ScoreInfo, WeatherInfo } from "@/types";
 
 /**
  * Compute a deterministic stargazing score from 0–100.
@@ -13,7 +13,7 @@ import { LightPollutionInfo, ScoreInfo } from "@/types";
  *  - Clamp result to [0, 100]
  */
 export function computeScore(
-  averageCloudCover: number,
+  weather: WeatherInfo,
   moonIllumination: number,
   moonAboveHorizon: boolean,
   lightPollution: LightPollutionInfo
@@ -21,11 +21,40 @@ export function computeScore(
   const reasons: string[] = [];
   let score = 100;
 
-  const cloudPenalty = averageCloudCover * 0.6;
+  const cloudPenalty = weather.averageCloudCover * 0.6;
   score -= cloudPenalty;
   reasons.push(
-    `Cloud cover ${averageCloudCover.toFixed(1)}% → -${cloudPenalty.toFixed(1)} points`
+    `Cloud cover ${weather.averageCloudCover.toFixed(1)}% (${weather.cloudCoverLabel}) → -${cloudPenalty.toFixed(1)} points`
   );
+
+  const seeingPenalty = Math.max(0, weather.seeing - 3) * 2.5;
+  if (seeingPenalty > 0) {
+    score -= seeingPenalty;
+    reasons.push(
+      `Seeing ${weather.seeing.toFixed(1)} (${weather.seeingLabel}) → -${seeingPenalty.toFixed(1)} points`
+    );
+  } else {
+    reasons.push(`Seeing ${weather.seeing.toFixed(1)} (${weather.seeingLabel}) → no seeing penalty`);
+  }
+
+  const transparencyPenalty = Math.max(0, weather.transparency - 3) * 2.5;
+  if (transparencyPenalty > 0) {
+    score -= transparencyPenalty;
+    reasons.push(
+      `Transparency ${weather.transparency.toFixed(1)} (${weather.transparencyLabel}) → -${transparencyPenalty.toFixed(1)} points`
+    );
+  } else {
+    reasons.push(
+      `Transparency ${weather.transparency.toFixed(1)} (${weather.transparencyLabel}) → no transparency penalty`
+    );
+  }
+
+  if (weather.precipitationType !== "none") {
+    score -= 25;
+    reasons.push(`${weather.precipitationLabel} forecast during observing window → -25.0 points`);
+  } else {
+    reasons.push("No rain or snow forecast during observing window → no precipitation penalty");
+  }
 
   if (moonAboveHorizon) {
     const moonPenalty = moonIllumination * 30;

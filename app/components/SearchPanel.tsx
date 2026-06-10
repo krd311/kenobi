@@ -6,6 +6,7 @@ import { dragHandleStyle, getBasePanelStyle, resizeHandleStyle } from "@/app/com
 import { EvaluateResponse, Location } from "@/types";
 import styles from "./SearchPanel.module.css";
 import { RingChart } from "./RingChart";
+import { MetricDataPod } from "./MetricDataPod";
 
 function formatTimeWithoutSeconds(value: string): string {
   return new Date(value).toLocaleTimeString([], {
@@ -22,8 +23,8 @@ function formatDisplayDate(value: string): string {
   });
 }
 
-function formatOptionalNumber(value: number | null, digits: number): string {
-  return value === null ? "Unavailable" : value.toFixed(digits);
+function celsiusToFahrenheit(value: number): number {
+  return (value * 9) / 5 + 32;
 }
 
 export function SearchPanel({
@@ -213,9 +214,6 @@ export function SearchPanel({
               e.currentTarget.showPicker?.();
             }}
           />
-          <small className={styles.fieldHint}>
-            Future dates are available up to 16 days ahead based on forecast data.
-          </small>
         </div>
 
         <button
@@ -302,10 +300,53 @@ export function SearchPanel({
               </div>
 
               <div className={styles.metricGrid}>
-                
+                <MetricDataPod
+                  label="Cloud Cover"
+                  value={`${result.weather.cloudCoverLabel} (${result.weather.averageCloudCover.toFixed(1)}% coverage)`}
+                />
+                <MetricDataPod
+                  label="Seeing"
+                  value={result.weather.seeingLabel}
+                />
+                <MetricDataPod
+                  label="Transparency"
+                  value={result.weather.transparencyLabel}
+                />
+                <MetricDataPod
+                  label="Precipitation"
+                  value={result.weather.precipitationLabel}
+                />
+                <MetricDataPod
+                  label="Wind"
+                  value={result.weather.windSpeedLabel}
+                />
+                <MetricDataPod
+                  label="Humidity"
+                  value={result.weather.relativeHumidity}
+                />
+                <MetricDataPod
+                  label="Temperature"
+                  value={`${celsiusToFahrenheit(result.weather.lowTemperatureC).toFixed(1)}-${celsiusToFahrenheit(result.weather.highTemperatureC).toFixed(1)}°F`}
+                  subvalue={`Avg ${celsiusToFahrenheit(result.weather.temperatureC).toFixed(1)}°F`}
+                />
+                <MetricDataPod
+                  label="Moon Phase"
+                  value={result.moon.moonPhase}
+                  subvalue={`${(result.moon.illumination * 100).toFixed(1)}% illuminated`}
+                />
+                <MetricDataPod
+                  label="Light Pollution"
+                  value={
+                    result.lightPollution.bortleClass
+                      ? `Bortle Class ${result.lightPollution.bortleClass}`
+                      : "Unavailable"
+                  }
+                  subvalue={result.lightPollution.qualityLabel}
+                />
               </div>
 
               <p className={styles.sourceNote}>
+                Weather source: {result.weather.source}.{" "}
                 Light pollution source: {result.lightPollution.source}
                 {result.lightPollution.note ? ` (${result.lightPollution.note})` : ""}
               </p>

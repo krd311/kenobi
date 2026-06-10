@@ -21,8 +21,8 @@ export function RingChart({
   const dashOffset = circumference * (1 - progress);
 
   let color = "#eb2525"; // Red for values below 60
-  if (clampedValue < 60) {
-    color = "#f59e0b"; // Yellow for values between 60 and 79
+  if (50 < clampedValue && clampedValue < 80) {
+    color = "#f59e0b"; // Yellow for values between 51 and 59
   }
   if (clampedValue >= 80) {
     color = "#10b981"; // Green for values 80 and above

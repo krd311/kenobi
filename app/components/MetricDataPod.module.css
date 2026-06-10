@@ -1,4 +1,5 @@
 .pod {
+  margin-top: 0.75rem;
   background: rgba(17, 24, 39, 0.72);
   border: 1px solid #2a2f38;
   border-radius: 8px;
@@ -14,16 +15,14 @@
 }
 
 .label {
-  color: #d1d5db;
+  color: #9ca3af;
   font-size: 0.82rem;
-  font-weight: 700;
-  line-height: 1.25;
+  line-height: 1.1;
 }
 
 .status {
   border-radius: 999px;
   font-size: 0.7rem;
-  font-weight: 700;
   line-height: 1;
   padding: 0.25rem 0.4rem;
   white-space: nowrap;
@@ -46,9 +45,8 @@
 
 .value {
   color: #fff;
-  font-size: 1.15rem;
-  font-weight: 700;
-  line-height: 1.15;
+  font-size: .82rem;
+  line-height: 1.12;
   margin-top: 0.35rem;
   overflow-wrap: anywhere;
 }

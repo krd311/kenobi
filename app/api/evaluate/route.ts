@@ -92,7 +92,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     ]);
 
     const score = computeScore(
-      weather.averageCloudCover,
+      weather,
       moon.illumination,
       moon.aboveHorizonDuringWindow,
       lightPollution

@@ -29,7 +29,7 @@ export function MetricDataPod({
   return (
     <article className={styles.pod}>
       <div className={styles.header}>
-        <strong className={styles.label}>{label}</strong>
+        <div className={styles.label}>{label}</div>
         {status && (
           <span className={`${styles.status} ${statusClassByStatus[status]}`}>
             {statusLabel ?? status}
